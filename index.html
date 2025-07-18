@@ -4,61 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Budgeting and Layoff Planner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-    <script src="https://unpkg.com/javascript-lp-solver/prod/solver.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        input, button, textarea { margin: 10px 0; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        body { margin: 20px; }
         #status { color: green; }
         #warning { color: red; }
+        #datePickerInput { display: none; }
     </style>
 </head>
 <body>
-    <h1>Employee Budgeting and Layoff Planner</h1>
+    <div class="container">
+        <h1 class="mb-4">Employee Budgeting and Layoff Planner</h1>
 
-    <label for="employeeFile">Upload Employee Data (Excel: LastName, FirstName, Position, HourlyPay)</label><br>
-    <input type="file" id="employeeFile" accept=".xlsx"><br>
+        <div class="mb-3">
+            <label for="employeeFile" class="form-label">Upload Employee Data (Excel: LastName, FirstName, Position, HourlyPay)</label>
+            <input type="file" class="form-control" id="employeeFile" accept=".xlsx">
+        </div>
 
-    <label for="scheduleInput">Enter Work Schedule (one per line: Date(YYYY-MM-DD),Hours)</label><br>
-    <textarea id="scheduleInput" rows="10" cols="50"></textarea><br>
+        <h3>Build Work Schedule</h3>
+        <p>Select work days using the calendar and assign hours for each day. You can add multiple days across weeks.</p>
+        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Day</button>
+        <input id="datePickerInput">
+        <table class="table table-striped" id="scheduleTable">
+            <thead>
+                <tr>
+                    <th>Date (YYYY-MM-DD)</th>
+                    <th>Hours</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
-    <label for="newHires">Add New Hires (one per line: LastName,FirstName,Position,HourlyPay,StartDate (YYYY-MM-DD))</label><br>
-    <textarea id="newHires" rows="5" cols="50"></textarea><br>
+        <div class="mb-3">
+            <label for="newHires" class="form-label">Add New Hires (one per line: LastName,FirstName,Position,HourlyPay,StartDate (YYYY-MM-DD))</label>
+            <textarea class="form-control" id="newHires" rows="5"></textarea>
+        </div>
 
-    <label for="budget">Total Budget</label><br>
-    <input type="number" id="budget" step="0.01" min="0"><br>
+        <div class="mb-3">
+            <label for="budget" class="form-label">Total Budget</label>
+            <input type="number" class="form-control" id="budget" step="0.01" min="0">
+        </div>
 
-    <label for="optimize">Compute Optimal Layoffs? (Uncheck for manual only)</label>
-    <input type="checkbox" id="optimize" checked><br>
+        <button class="btn btn-primary" onclick="loadDataAndCompute()">Load Data and Generate Plan</button>
 
-    <button onclick="loadDataAndCompute()">Load Data and Plan</button><br>
+        <h2 class="mt-4">Proposed Plan</h2>
+        <table class="table table-striped" id="planTable">
+            <thead>
+                <tr>
+                    <th>LastName</th>
+                    <th>FirstName</th>
+                    <th>Position</th>
+                    <th>HourlyPay</th>
+                    <th>StartDate</th>
+                    <th>ProposedLayoff</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
-    <h2>Proposed Plan</h2>
-    <table id="planTable">
-        <thead>
-            <tr>
-                <th>LastName</th>
-                <th>FirstName</th>
-                <th>Position</th>
-                <th>HourlyPay</th>
-                <th>StartDate</th>
-                <th>ProposedLayoff</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+        <button class="btn btn-secondary mt-3" onclick="recalculateCost()" style="display:none;" id="recalcBtn">Recalculate Cost with Edits</button>
+        <p id="status" class="mt-3"></p>
+        <p id="warning" class="mt-1"></p>
 
-    <button onclick="recalculateCost()" style="display:none;" id="recalcBtn">Recalculate Cost with Edits</button>
-    <p id="status"></p>
-    <p id="warning"></p>
-
-    <button onclick="generatePDF()" style="display:none;" id="pdfBtn">Generate and Download PDF</button>
+        <button class="btn btn-success mt-3" onclick="generatePDF()" style="display:none;" id="pdfBtn">Generate and Download PDF</button>
+    </div>
 
     <script>
         let employees = [];
@@ -70,6 +87,40 @@
         let noLayoffDate = null;
         let budget = 0;
         let currentTotalCost = 0;
+        const hoursOptions = [8, 9, 10, 11.5, 12];
+
+        const datePicker = flatpickr("#datePickerInput", {
+            dateFormat: "Y-m-d",
+            minDate: "2025-07-18", // Current date from context
+            onChange: function(selectedDates) {
+                if (selectedDates[0]) {
+                    const selectedMoment = moment(selectedDates[0]);
+                    addScheduleRow(selectedMoment);
+                }
+            }
+        });
+
+        function addScheduleRow(date) {
+            const dateStr = date.format('YYYY-MM-DD');
+            const existingRows = Array.from(document.querySelectorAll('#scheduleTable tbody tr'));
+            if (existingRows.some(row => row.cells[0].textContent === dateStr)) {
+                alert('Date already added.');
+                return;
+            }
+
+            const tbody = document.getElementById('scheduleTable').querySelector('tbody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${dateStr}</td>
+                <td>
+                    <select class="form-select">
+                        ${hoursOptions.map(h => `<option value="${h}">${h}</option>`).join('')}
+                    </select>
+                </td>
+                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove()">Remove</button></td>
+            `;
+            tbody.appendChild(row);
+        }
 
         function parseExcel(file, callback) {
             const reader = new FileReader();
@@ -86,34 +137,24 @@
 
         function loadDataAndCompute() {
             const employeeFile = document.getElementById('employeeFile').files[0];
-            const scheduleText = document.getElementById('scheduleInput').value;
             budget = parseFloat(document.getElementById('budget').value);
 
-            if (!employeeFile || !scheduleText || isNaN(budget)) {
-                alert('Please upload employee file, enter schedule, and enter a budget.');
+            if (!employeeFile || isNaN(budget)) {
+                alert('Please upload employee file and enter a budget.');
                 return;
             }
 
-            // Parse schedule from textarea
+            // Collect schedule from table
             schedule = [];
-            scheduleText.split('\n').forEach(line => {
-                if (line.trim()) {
-                    const parts = line.split(',');
-                    if (parts.length === 2) {
-                        const dateStr = parts[0].trim();
-                        const hours = parseFloat(parts[1].trim());
-                        if (moment(dateStr, 'YYYY-MM-DD', true).isValid() && !isNaN(hours)) {
-                            schedule.push({Date: dateStr, Hours: hours});
-                        } else {
-                            alert('Invalid schedule line: ' + line);
-                            return;
-                        }
-                    }
-                }
+            const scheduleRows = Array.from(document.querySelectorAll('#scheduleTable tbody tr'));
+            scheduleRows.forEach(row => {
+                const dateStr = row.cells[0].textContent;
+                const hours = parseFloat(row.cells[1].querySelector('select').value);
+                schedule.push({Date: dateStr, Hours: hours});
             });
 
             if (schedule.length === 0) {
-                alert('No valid schedule entries.');
+                alert('Please add at least one work day to the schedule.');
                 return;
             }
 
@@ -138,7 +179,7 @@
                 dailyMultipliers[d.format('YYYY-MM-DD')] = mult;
             });
 
-            // Possible layoff dates: Fridays (weekday 5 in moment, 0=Sun,5=Fri,6=Sat)
+            // Possible ends not needed since no optimization, but keep for consistency
             let fridayDates = workDates.filter(d => d.day() === 5).sort((a,b) => a - b);
             fridayDates = [...new Set(fridayDates.map(d => d.format('YYYY-MM-DD')))].map(d => moment(d));
             possibleEnds = fridayDates.concat([noLayoffDate]);
@@ -170,102 +211,14 @@
                     });
                 }
 
-                if (document.getElementById('optimize').checked) {
-                    computeOptimalPlan();
-                } else {
-                    employees.forEach(emp => emp.ProposedLayoff = 'None (full period)');
-                    displayPlanTable();
-                    recalculateCost();
-                    document.getElementById('recalcBtn').style.display = 'block';
-                    document.getElementById('pdfBtn').style.display = 'block';
-                    updateCostDisplay();
-                }
-            });
-        }
-
-        function precomputeMatrices() {
-            const numEmps = employees.length;
-            const numEnds = possibleEnds.length;
-            const costMatrix = Array.from({length: numEmps}, () => Array(numEnds).fill(0));
-            const hoursMatrix = Array.from({length: numEmps}, () => Array(numEnds).fill(0));
-
-            for (let i = 0; i < numEmps; i++) {
-                const startI = employees[i].StartDate;
-                const payI = employees[i].HourlyPay;
-                for (let j = 0; j < numEnds; j++) {
-                    const endJ = possibleEnds[j];
-                    let totalCost = 0;
-                    let totalHours = 0;
-                    workDates.forEach(d => {
-                        if (d.isSameOrAfter(startI) && d.isBefore(endJ)) {
-                            const h = dailyHours[d.format('YYYY-MM-DD')];
-                            const mult = dailyMultipliers[d.format('YYYY-MM-DD')];
-                            totalCost += h * payI * mult;
-                            totalHours += h;
-                        }
-                    });
-                    costMatrix[i][j] = totalCost;
-                    hoursMatrix[i][j] = totalHours;
-                }
-            }
-            return { costMatrix, hoursMatrix };
-        }
-
-        function computeOptimalPlan() {
-            const { costMatrix, hoursMatrix } = precomputeMatrices();
-
-            // Set up LP model
-            const model = {
-                optimize: "totalHours",
-                opType: "max",
-                constraints: { budget: { max: budget } },
-                variables: {},
-                ints: {}
-            };
-
-            for (let i = 0; i < employees.length; i++) {
-                const oneConstraint = { min: 1, max: 1 };
-                model.constraints[`emp_${i}`] = oneConstraint;
-                for (let j = 0; j < possibleEnds.length; j++) {
-                    const varName = `x_${i}_${j}`;
-                    model.variables[varName] = {
-                        totalHours: hoursMatrix[i][j],
-                        budget: costMatrix[i][j],
-                        [`emp_${i}`]: 1
-                    };
-                    model.ints[varName] = 1;
-                }
-            }
-
-            const results = solver.Solve(model);
-
-            if (results.feasible) {
-                const layoffPlan = [];
-                for (let i = 0; i < employees.length; i++) {
-                    for (let j = 0; j < possibleEnds.length; j++) {
-                        const varName = `x_${i}_${j}`;
-                        if (results[varName] === 1) {
-                            const endJ = possibleEnds[j];
-                            const layoff = endJ.isSame(noLayoffDate) ? 'None (full period)' : endJ.format('YYYY-MM-DD');
-                            layoffPlan.push(layoff);
-                            break;
-                        }
-                    }
-                }
-
-                employees.forEach((emp, idx) => {
-                    emp.ProposedLayoff = layoffPlan[idx];
-                });
-
-                currentTotalCost = results.budget; // Actually the used cost
-
+                // No optimization: set all to full period
+                employees.forEach(emp => emp.ProposedLayoff = 'None (full period)');
                 displayPlanTable();
+                recalculateCost();
                 document.getElementById('recalcBtn').style.display = 'block';
                 document.getElementById('pdfBtn').style.display = 'block';
                 updateCostDisplay();
-            } else {
-                alert('No feasible solution found. Try increasing the budget or uncheck optimize to start manual.');
-            }
+            });
         }
 
         function displayPlanTable() {
@@ -333,6 +286,17 @@
             doc.text(`Budget: $${budget.toFixed(2)}`, 10, 20);
             doc.text(`Total Cost: $${currentTotalCost.toFixed(2)}`, 10, 30);
 
+            // Add schedule table
+            doc.text('Work Schedule', 10, 50);
+            const scheduleData = schedule.map(row => [row.Date, row.Hours]);
+            doc.autoTable({
+                head: [['Date', 'Hours']],
+                body: scheduleData,
+                startY: 55
+            });
+
+            // Add plan table
+            doc.text('Employee Plan', 10, doc.lastAutoTable.finalY + 20);
             const tableData = employees.map((emp, idx) => [
                 emp.LastName,
                 emp.FirstName,
@@ -345,7 +309,7 @@
             doc.autoTable({
                 head: [['LastName', 'FirstName', 'Position', 'HourlyPay', 'StartDate', 'ProposedLayoff']],
                 body: tableData,
-                startY: 40
+                startY: doc.lastAutoTable.finalY + 25
             });
 
             doc.save('layoff_plan.pdf');
