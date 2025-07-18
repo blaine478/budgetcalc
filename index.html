@@ -44,28 +44,8 @@
             <tbody></tbody>
         </table>
 
-        <h3>Add New Hires</h3>
-        <button class="btn btn-secondary mb-3" onclick="addNewHireRow()">Add New Hire</button>
-        <table class="table table-striped" id="newHiresTable">
-            <thead>
-                <tr>
-                    <th>Last Name</th>
-                    <th>First Name</th>
-                    <th>Position</th>
-                    <th>Hourly Rate</th>
-                    <th>Hire Date (MM-DD-YYYY)</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-
-        <div class="mb-3">
-            <label for="budget" class="form-label">Total Budget</label>
-            <input type="number" class="form-control" id="budget" step="0.01" min="0">
-        </div>
-
-        <h2 class="mt-4">Plan</h2>
+        <h3>Employees</h3>
+        <button class="btn btn-secondary mb-3" onclick="addEmployeeRow()">Add Employee</button>
         <table class="table table-striped" id="planTable">
             <thead>
                 <tr>
@@ -73,7 +53,7 @@
                     <th>First Name</th>
                     <th>Position</th>
                     <th>Rate</th>
-                    <th>Start Date</th>
+                    <th>Start Date (MM-DD-YYYY)</th>
                     <th>Layoff Date (MM-DD-YYYY or None)</th>
                     <th>Action</th>
                 </tr>
@@ -87,7 +67,12 @@
             <tbody id="weekendBody"></tbody>
         </table>
 
-        <button class="btn btn-secondary mt-3" onclick="recalculateCost()" id="recalcBtn">Calculate Costs</button>
+        <div class="mb-3">
+            <label for="budget" class="form-label">Total Budget</label>
+            <input type="number" class="form-control" id="budget" step="0.01" min="0">
+        </div>
+
+        <button class="btn btn-secondary mt-3" onclick="recalculateCost()">Calculate Costs</button>
         <p id="status" class="mt-3"></p>
         <p id="warning" class="mt-1"></p>
 
@@ -128,7 +113,7 @@
         let dailyCosts = {}; // {date: {empIdx: cost, total: sum}}
         let weeklyCosts = {}; // {weekKey: {total: sum}}
         let weeklyHeadcount = {}; // {weekKey: count}
-        let weekendDates = []; // Array of weekend date strings (YYYY-MM-DD)
+        let weekendDates = [];
         const hoursOptions = [8, 9, 10, 11.5, 12];
         const dateFormat = 'MM-DD-YYYY';
 
@@ -157,33 +142,13 @@
             row.innerHTML = `
                 <td>${dateStr}</td>
                 <td>
-                    <select class="form-select" onchange="updatePlan();">
+                    <select class="form-select">
                         ${hoursOptions.map(h => `<option value="${h}">${h}</option>`).join('')}
                     </select>
                 </td>
                 <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Remove</button></td>
             `;
             tbody.appendChild(row);
-            updatePlan();
-        }
-
-        function addNewHireRow() {
-            const tbody = document.getElementById('newHiresTable').querySelector('tbody');
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><input type="text" class="form-control" placeholder="Last Name" oninput="updatePlan();"></td>
-                <td><input type="text" class="form-control" placeholder="First Name" oninput="updatePlan();"></td>
-                <td><input type="text" class="form-control" placeholder="Position" oninput="updatePlan();"></td>
-                <td><input type="number" class="form-control" placeholder="Hourly Rate" step="0.01" oninput="updatePlan();"></td>
-                <td><input type="text" class="form-control hire-date-picker" placeholder="MM-DD-YYYY"></td>
-                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Remove</button></td>
-            `;
-            tbody.appendChild(row);
-            flatpickr(row.querySelector('.hire-date-picker'), {
-                dateFormat: "m-d-Y",
-                minDate: "07-18-2025",
-                onChange: function() { updatePlan(); }
-            });
             updatePlan();
         }
 
@@ -203,19 +168,45 @@
         document.getElementById('employeeFile').addEventListener('change', function() {
             const file = this.files[0];
             if (file) {
-                parseExcel(file, loadEmployees);
+                parseExcel(file, loadEmployeesFromExcel);
             }
         });
 
-        function loadEmployees(emps) {
-            employees = emps.map(emp => ({
-                LastName: emp['Last Name'] || '',
-                FirstName: emp['First Name'] || '',
-                Position: emp['Position'] || '',
-                HourlyPay: parseFloat(emp['Rate']) || 0,
-                StartDate: emp['StartDate'] ? moment(emp['StartDate'], dateFormat) : moment('07-18-2025', dateFormat),
-                WeekendWork: {} // {dateStr: true/false for weekends}
-            })).filter(emp => emp.LastName && emp.FirstName && emp.Position && emp.HourlyPay > 0);
+        function loadEmployeesFromExcel(emps) {
+            const tbody = document.getElementById('planTable').querySelector('tbody');
+            tbody.innerHTML = ''; // Clear existing rows to avoid duplication
+            emps.forEach(emp => {
+                if (emp['Last Name'] && emp['First Name'] && emp['Position'] && emp['Rate']) {
+                    addEmployeeRow(emp['Last Name'], emp['First Name'], emp['Position'], emp['Rate'], emp['StartDate'] ? moment(emp['StartDate'], dateFormat).format(dateFormat) : '07-18-2025', 'None (full period)');
+                }
+            });
+            updatePlan();
+        }
+
+        function addEmployeeRow(last = '', first = '', pos = '', rate = '', start = '07-18-2025', layoff = 'None (full period)') {
+            const tbody = document.getElementById('planTable').querySelector('tbody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" class="form-control" value="${last}" oninput="updatePlan();"></td>
+                <td><input type="text" class="form-control" value="${first}" oninput="updatePlan();"></td>
+                <td><input type="text" class="form-control" value="${pos}" oninput="updatePlan();"></td>
+                <td><input type="number" class="form-control" value="${rate}" step="0.01" oninput="updatePlan();"></td>
+                <td><input type="text" class="form-control start-date-picker" value="${start}"></td>
+                <td><input type="text" class="form-control layoff-date-picker" value="${layoff === 'None (full period)' ? '' : layoff}" placeholder="None (full period)"></td>
+                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Delete</button></td>
+            `;
+            tbody.appendChild(row);
+            flatpickr(row.querySelector('.start-date-picker'), {
+                dateFormat: "m-d-Y",
+                minDate: "07-18-2025",
+                onChange: function() { updatePlan(); }
+            });
+            flatpickr(row.querySelector('.layoff-date-picker'), {
+                dateFormat: "m-d-Y",
+                minDate: "07-18-2025",
+                onChange: function() { updatePlan(); },
+                allowInput: true // Allow 'None' text
+            });
             updatePlan();
         }
 
@@ -255,59 +246,29 @@
 
             weekendDates = workDates.filter(d => d.day() === 6 || d.day() === 0).map(d => d.format('YYYY-MM-DD'));
 
-            const tempEmployees = [...employees];
-            const newHireRows = Array.from(document.querySelectorAll('#newHiresTable tbody tr'));
-            newHireRows.forEach(row => {
+            employees = [];
+            const planRows = Array.from(document.querySelectorAll('#planTable tbody tr'));
+            planRows.forEach(row => {
                 const last = row.cells[0].querySelector('input').value.trim();
                 const first = row.cells[1].querySelector('input').value.trim();
                 const pos = row.cells[2].querySelector('input').value.trim();
                 const pay = parseFloat(row.cells[3].querySelector('input').value);
-                const hDate = row.cells[4].querySelector('input').value.trim();
-                if (last && first && pos && !isNaN(pay) && moment(hDate, dateFormat, true).isValid()) {
-                    tempEmployees.push({
+                const start = row.cells[4].querySelector('input').value.trim();
+                const layoff = row.cells[5].querySelector('input').value.trim() || 'None (full period)';
+                if (last && first && pos && !isNaN(pay) && moment(start, dateFormat, true).isValid()) {
+                    employees.push({
                         LastName: last,
                         FirstName: first,
                         Position: pos,
                         HourlyPay: pay,
-                        StartDate: moment(hDate, dateFormat),
-                        WeekendWork: {}
+                        StartDate: moment(start, dateFormat),
+                        ProposedLayoff: layoff,
+                        WeekendWork: {} // Reset or preserve if needed, but since dynamic, rebuilt in recalc
                     });
                 }
             });
 
-            tempEmployees.forEach(emp => {
-                if (!emp.ProposedLayoff) {
-                    emp.ProposedLayoff = 'None (full period)';
-                }
-            });
-
-            employees = tempEmployees;
-            displayPlanTable();
             displayWeekendTable();
-        }
-
-        function displayPlanTable() {
-            const tbody = document.getElementById('planTable').querySelector('tbody');
-            tbody.innerHTML = '';
-            employees.forEach((emp, idx) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${emp.LastName}</td>
-                    <td>${emp.FirstName}</td>
-                    <td>${emp.Position}</td>
-                    <td>${emp.HourlyPay.toFixed(2)}</td>
-                    <td>${emp.StartDate.format(dateFormat)}</td>
-                    <td contenteditable="true" id="layoff_${idx}" oninput="updatePlan();">${emp.ProposedLayoff}</td>
-                    <td><button class="btn btn-danger btn-sm" onclick="deleteEmployee(${idx});">Delete</button></td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        function deleteEmployee(idx) {
-            employees.splice(idx, 1);
-            updatePlan();
-            recalculateCost();
         }
 
         function displayWeekendTable() {
@@ -333,15 +294,13 @@
             let totalCost = 0;
             let valid = true;
             employees.forEach((emp, idx) => {
-                let layoff = document.getElementById(`layoff_${idx}`).innerText.trim();
-                emp.ProposedLayoff = layoff;
                 let endI;
-                if (layoff === 'None (full period)') {
+                if (emp.ProposedLayoff === 'None (full period)') {
                     endI = noLayoffDate;
                 } else {
-                    endI = moment(layoff, dateFormat).add(1, 'days');
+                    endI = moment(emp.ProposedLayoff, dateFormat).add(1, 'days');
                     if (!endI.isValid()) {
-                        alert(`Invalid date for employee ${emp.FirstName} ${emp.LastName}: ${layoff}`);
+                        alert(`Invalid layoff date for employee ${emp.FirstName} ${emp.LastName}: ${emp.ProposedLayoff}`);
                         valid = false;
                         return;
                     }
@@ -352,7 +311,7 @@
                 workDates.forEach(d => {
                     const dateStr = d.format('YYYY-MM-DD');
                     const wd = d.day();
-                    const worksWeekend = (wd !== 6 && wd !== 0) || emp.WeekendWork[dateStr] !== false;
+                    const worksWeekend = emp.WeekendWork[dateStr] !== false;
                     if (d.isSameOrAfter(startI) && d.isBefore(endI) && worksWeekend) {
                         const h = dailyHours[dateStr];
                         const mult = dailyMultipliers[dateStr];
@@ -395,7 +354,7 @@
             displayWeeklyCosts();
             displayHeadcount();
             updateCostDisplay();
-            displayDailyCostsForDay(select.value); // Refresh if selected
+            displayDailyCostsForDay(select.value);
         }
 
         function displayDailyCostsForDay(date) {
@@ -491,7 +450,7 @@
                 emp.HourlyPay.toFixed(2),
                 emp.StartDate.format(dateFormat),
                 Object.keys(emp.WeekendWork).map(d => moment(d, 'YYYY-MM-DD').format(dateFormat) + ': ' + (emp.WeekendWork[d] ? 'Yes' : 'No')).join(', '),
-                emp.ProposedLayoff === 'None (full period)' ? 'None' : emp.ProposedLayoff
+                emp.ProposedLayoff
             ]);
             doc.autoTable({
                 head: [['Last Name', 'First Name', 'Position', 'Rate', 'Start Date', 'Weekend Work', 'Proposed Layoff']],
