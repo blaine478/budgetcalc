@@ -24,8 +24,34 @@
         <h1 class="mb-4">Employee Budgeting and Layoff Planner</h1>
 
         <div class="mb-3">
-            <label for="employeeFile" class="form-label">Upload Employee Data (Excel: LastName, FirstName, Position, HourlyPay)</label>
+            <label for="employeeFile" class="form-label">Upload Employee Data (Excel)</label>
             <input type="file" class="form-control" id="employeeFile" accept=".xlsx">
+        </div>
+
+        <h3>Column Mapping for Employee Data</h3>
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="colLastName" class="form-label">Last Name Column</label>
+                <input type="text" class="form-control" id="colLastName" value="Last Name">
+            </div>
+            <div class="col-md-3">
+                <label for="colFirstName" class="form-label">First Name Column</label>
+                <input type="text" class="form-control" id="colFirstName" value="First Name">
+            </div>
+            <div class="col-md-3">
+                <label for="colPosition" class="form-label">Position Column</label>
+                <input type="text" class="form-control" id="colPosition" value="Position">
+            </div>
+            <div class="col-md-3">
+                <label for="colHourlyPay" class="form-label">Rate Column</label>
+                <input type="text" class="form-control" id="colHourlyPay" value="Rate">
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="colStartDate" class="form-label">Start Date Column (Optional)</label>
+                <input type="text" class="form-control" id="colStartDate" value="StartDate">
+            </div>
         </div>
 
         <h3>Build Work Schedule</h3>
@@ -68,12 +94,12 @@
         <table class="table table-striped" id="planTable">
             <thead>
                 <tr>
-                    <th>LastName</th>
-                    <th>FirstName</th>
+                    <th>Last Name</th>
+                    <th>First Name</th>
                     <th>Position</th>
-                    <th>HourlyPay</th>
-                    <th>StartDate</th>
-                    <th>ProposedLayoff</th>
+                    <th>Rate</th>
+                    <th>Start Date</th>
+                    <th>Proposed Layoff</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -136,7 +162,7 @@
             row.innerHTML = `
                 <td>${dateStr}</td>
                 <td>
-                    <select class="form-select">
+                    <select class="form-select" onchange="updatePlan();">
                         ${hoursOptions.map(h => `<option value="${h}">${h}</option>`).join('')}
                     </select>
                 </td>
@@ -150,11 +176,11 @@
             const tbody = document.getElementById('newHiresTable').querySelector('tbody');
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td><input type="text" class="form-control" placeholder="Last Name"></td>
-                <td><input type="text" class="form-control" placeholder="First Name"></td>
-                <td><input type="text" class="form-control" placeholder="Position"></td>
-                <td><input type="number" class="form-control" placeholder="Hourly Rate" step="0.01"></td>
-                <td><input type="text" class="form-control" placeholder="YYYY-MM-DD"></td>
+                <td><input type="text" class="form-control" placeholder="Last Name" oninput="updatePlan();"></td>
+                <td><input type="text" class="form-control" placeholder="First Name" oninput="updatePlan();"></td>
+                <td><input type="text" class="form-control" placeholder="Position" oninput="updatePlan();"></td>
+                <td><input type="number" class="form-control" placeholder="Hourly Rate" step="0.01" oninput="updatePlan();"></td>
+                <td><input type="text" class="form-control" placeholder="YYYY-MM-DD" oninput="updatePlan();"></td>
                 <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Remove</button></td>
             `;
             tbody.appendChild(row);
@@ -168,7 +194,7 @@
                 const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(sheet, { dateNF: 'yyyy-mm-dd' });
+                const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
                 callback(json);
             };
             reader.readAsBinaryString(file);
@@ -177,16 +203,36 @@
         document.getElementById('employeeFile').addEventListener('change', function() {
             const file = this.files[0];
             if (file) {
-                parseExcel(file, function(emps) {
-                    employees = emps.map(emp => ({
-                        ...emp,
-                        HourlyPay: parseFloat(emp.HourlyPay),
-                        StartDate: emp.StartDate ? moment(emp.StartDate, 'YYYY-MM-DD') : moment('2025-07-18')
-                    }));
-                    updatePlan();
-                });
+                parseExcel(file, loadEmployees);
             }
         });
+
+        // Add event listeners to column mapping inputs to re-parse on change
+        ['colLastName', 'colFirstName', 'colPosition', 'colHourlyPay', 'colStartDate'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                const file = document.getElementById('employeeFile').files[0];
+                if (file) {
+                    parseExcel(file, loadEmployees);
+                }
+            });
+        });
+
+        function loadEmployees(emps) {
+            const colLast = document.getElementById('colLastName').value;
+            const colFirst = document.getElementById('colFirstName').value;
+            const colPos = document.getElementById('colPosition').value;
+            const colPay = document.getElementById('colHourlyPay').value;
+            const colStart = document.getElementById('colStartDate').value || null;
+
+            employees = emps.map(emp => ({
+                LastName: emp[colLast] || '',
+                FirstName: emp[colFirst] || '',
+                Position: emp[colPos] || '',
+                HourlyPay: parseFloat(emp[colPay]) || 0,
+                StartDate: colStart && emp[colStart] ? moment(emp[colStart], 'YYYY-MM-DD') : moment('2025-07-18')
+            })).filter(emp => emp.LastName && emp.FirstName && emp.Position && emp.HourlyPay > 0);
+            updatePlan();
+        }
 
         document.getElementById('budget').addEventListener('input', function() {
             budget = parseFloat(this.value) || 0;
@@ -297,16 +343,19 @@
                         const dateStr = d.format('YYYY-MM-DD');
                         const h = dailyHours[dateStr];
                         const mult = dailyMultipliers[dateStr];
-                        const dayCost = h * payI * mult;
+                        const ot_h = Math.max(h - 8, 0);
+                        const base_cost = h * payI * mult;
+                        const ot_cost = ot_h * payI * 0.5;
+                        const day_cost = base_cost + ot_cost;
                         if (!dailyCosts[dateStr]) dailyCosts[dateStr] = {total: 0};
-                        dailyCosts[dateStr][idx] = dayCost;
-                        dailyCosts[dateStr].total += dayCost;
+                        dailyCosts[dateStr][idx] = day_cost;
+                        dailyCosts[dateStr].total += day_cost;
 
                         const weekKey = d.format('YYYY-WW'); // e.g., 2025-30
                         if (!weeklyCosts[weekKey]) weeklyCosts[weekKey] = {total: 0};
                         if (!weeklyCosts[weekKey][idx]) weeklyCosts[weekKey][idx] = 0;
-                        weeklyCosts[weekKey][idx] += dayCost;
-                        weeklyCosts[weekKey].total += dayCost;
+                        weeklyCosts[weekKey][idx] += day_cost;
+                        weeklyCosts[weekKey].total += day_cost;
                     }
                 });
             });
@@ -415,7 +464,7 @@
                 emp.ProposedLayoff
             ]);
             doc.autoTable({
-                head: [['LastName', 'FirstName', 'Position', 'HourlyPay', 'StartDate', 'ProposedLayoff']],
+                head: [['Last Name', 'First Name', 'Position', 'Rate', 'Start Date', 'Proposed Layoff']],
                 body: tableData,
                 startY: doc.lastAutoTable.finalY + 25
             });
