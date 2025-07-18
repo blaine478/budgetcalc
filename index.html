@@ -21,9 +21,9 @@
             color: #1d1d1f;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             background: white;
-            padding: 20px;
+            padding: 30px;
             border-radius: 18px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
@@ -62,9 +62,10 @@
         .form-control {
             border-radius: 8px;
         }
-        #status { color: #34c759; font-weight: bold; }
-        #warning { color: #ff3b30; font-weight: bold; }
-        canvas { background: white; border-radius: 18px; padding: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); }
+        #status { color: #34c759; }
+        #warning { color: #ff3b30; }
+        canvas { background: white; border-radius: 18px; padding: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); margin-bottom: 20px; }
+        .chart-container { margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -115,14 +116,14 @@
         </table>
 
         <div class="mb-3">
-            <label for="budget" class="form-label">**Total Budget**</label>
+            <label for="budget" class="form-label">Total Budget</label>
             <input type="number" class="form-control" id="budget" step="0.01" min="0">
         </div>
 
         <button class="btn btn-secondary mt-3" onclick="saveState()">Save State</button>
         <label for="loadStateFile" class="btn btn-secondary mt-3">Load State<input type="file" id="loadStateFile" accept=".json" style="display: none;" onchange="loadState(this.files[0])"></label>
 
-        <button class="btn btn-secondary mt-3" onclick="recalculateCost()">**Calculate Costs**</button>
+        <button class="btn btn-secondary mt-3" onclick="recalculateCost()">Calculate Costs</button>
         <p id="status" class="mt-3"></p>
         <p id="warning" class="mt-1"></p>
 
@@ -135,11 +136,21 @@
             <tbody id="dailyCostsBody"></tbody>
         </table>
 
+        <div class="chart-container">
+            <h3>Daily Costs Bar Chart</h3>
+            <canvas id="dailyCostsChart" height="200"></canvas>
+        </div>
+
         <h3 class="mt-4">Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)</h3>
         <table class="table table-striped" id="weeklyCostsTable">
             <thead><tr><th>Week (First to Last Day)</th><th>Total Cost</th></tr></thead>
             <tbody id="weeklyCostsBody"></tbody>
         </table>
+
+        <div class="chart-container">
+            <h3>Weekly Costs Bar Chart</h3>
+            <canvas id="weeklyCostsChart" height="200"></canvas>
+        </div>
 
         <h3 class="mt-4">Weekly Headcount Flow (Grouped by Calendar Week in YYYY-WW Format)</h3>
         <canvas id="headcountChart" height="200"></canvas>
@@ -148,7 +159,7 @@
             <tbody id="headcountBody"></tbody>
         </table>
 
-        <button class="btn btn-success mt-3" onclick="generatePDF()">**Generate and Download PDF**</button>
+        <button class="btn btn-success mt-3" onclick="generatePDF()">Generate and Download PDF</button>
     </div>
 
     <script>
@@ -413,6 +424,8 @@
 
             displayWeeklyCosts();
             displayHeadcount();
+            displayDailyCostsChart(sortedDates);
+            displayWeeklyCostsChart(sortedWeeks);
             updateCostDisplay();
             displayDailyCostsForDay(select.value);
         }
@@ -427,7 +440,7 @@
                 body.innerHTML += `<tr><td>${emp.FirstName} ${emp.LastName}</td><td>$${cost.toFixed(2)}</td></tr>`;
                 grandTotal += cost;
             });
-            body.innerHTML += `<tr><td><strong>Total</strong></td><td><strong>$${grandTotal.toFixed(2)}</strong></td></tr>`;
+            body.innerHTML += `<tr><td>Total</td><td>$${grandTotal.toFixed(2)}</td></tr>`;
         }
 
         function displayWeeklyCosts() {
@@ -443,7 +456,7 @@
                 body.innerHTML += `<tr><td>${monday} to ${sunday}</td><td>$${cost.toFixed(2)}</td></tr>`;
                 grandTotal += cost;
             });
-            body.innerHTML += `<tr><td><strong>Total</strong></td><td><strong>$${grandTotal.toFixed(2)}</strong></td></tr>`;
+            body.innerHTML += `<tr><td>Total</td><td>$${grandTotal.toFixed(2)}</td></tr>`;
         }
 
         function displayHeadcount() {
@@ -457,15 +470,14 @@
             const ctx = document.getElementById('headcountChart');
             if (ctx.chart) ctx.chart.destroy();
             ctx.chart = new Chart(ctx, {
-                type: 'bar',
+                type: 'line',
                 data: {
                     labels: sortedWeeks.map(w => `Week ${w}`),
                     datasets: [{
                         label: 'Headcount',
                         data: sortedWeeks.map(w => weeklyHeadcount[w]),
-                        backgroundColor: 'rgba(0, 113, 227, 0.8)',
                         borderColor: 'blue',
-                        borderWidth: 1
+                        fill: false
                     }]
                 },
                 options: {
@@ -476,10 +488,56 @@
             });
         }
 
+        function displayDailyCostsChart(sortedDates) {
+            const ctx = document.getElementById('dailyCostsChart');
+            if (ctx.chart) ctx.chart.destroy();
+            ctx.chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedDates.map(d => moment(d, 'YYYY-MM-DD').format(dateFormat)),
+                    datasets: [{
+                        label: 'Daily Cost',
+                        data: sortedDates.map(d => dailyCosts[d].total),
+                        backgroundColor: 'rgba(0, 113, 227, 0.8)',
+                        borderColor: 'blue',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function displayWeeklyCostsChart(sortedWeeks) {
+            const ctx = document.getElementById('weeklyCostsChart');
+            if (ctx.chart) ctx.chart.destroy();
+            ctx.chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedWeeks.map(w => `Week ${w}`),
+                    datasets: [{
+                        label: 'Weekly Cost',
+                        data: sortedWeeks.map(w => weeklyCosts[w].total),
+                        backgroundColor: 'rgba(0, 113, 227, 0.8)',
+                        borderColor: 'blue',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
         function updateCostDisplay() {
-            document.getElementById('status').innerText = `**Total calculated cost: $${currentTotalCost.toFixed(2)}**`;
+            document.getElementById('status').innerText = `Total calculated cost: $${currentTotalCost.toFixed(2)}`;
             if (currentTotalCost > budget) {
-                document.getElementById('warning').innerText = '**Warning: Over budget!**';
+                document.getElementById('warning').innerText = 'Warning: Over budget!';
             } else {
                 document.getElementById('warning').innerText = '';
             }
@@ -537,16 +595,13 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
-            doc.setFont("helvetica", "bold");
-            doc.text('Budgeting', 10, 10);
             doc.setFont("helvetica", "normal");
+            doc.text('Budgeting', 10, 10);
             doc.text(`Budget: $${budget.toFixed(2)}`, 10, 20);
             doc.text(`Total Cost: $${currentTotalCost.toFixed(2)}`, 10, 30);
 
             // Add schedule table
-            doc.setFont("helvetica", "bold");
             doc.text('Work Schedule', 10, 50);
-            doc.setFont("helvetica", "normal");
             const scheduleData = schedule.map(row => [moment(row.Date, dateFormat).format(dateFormat), row.Hours]);
             doc.autoTable({
                 head: [['Date', 'Hours']],
@@ -557,9 +612,7 @@
             });
 
             // Add employee plan table
-            doc.setFont("helvetica", "bold");
             doc.text('Employee Plan', 10, doc.lastAutoTable.finalY + 20);
-            doc.setFont("helvetica", "normal");
             const tableData = employees.map(emp => [
                 emp.LastName,
                 emp.FirstName,
@@ -579,13 +632,11 @@
 
             // Add daily group costs
             doc.addPage();
-            doc.setFont("helvetica", "bold");
             doc.text('Daily Group Costs', 10, 10);
-            doc.setFont("helvetica", "normal");
             const sortedDates = Object.keys(dailyCosts).sort();
             const dailyHead = [['Date', 'Total Cost']];
             const dailyBody = sortedDates.map(date => [moment(date, 'YYYY-MM-DD').format(dateFormat), `$${dailyCosts[date].total.toFixed(2)}`]);
-            dailyBody.push(['**Total**', `**$${currentTotalCost.toFixed(2)}**`]);
+            dailyBody.push(['Total', `$${currentTotalCost.toFixed(2)}`]);
             doc.autoTable({
                 head: dailyHead,
                 body: dailyBody,
@@ -594,11 +645,15 @@
                 styles: { font: "helvetica", fontSize: 10 }
             });
 
+            // Add daily costs bar chart to PDF
+            doc.addPage();
+            doc.text('Daily Costs Bar Chart', 10, 10);
+            const dailyChartCanvas = document.getElementById('dailyCostsChart');
+            doc.addImage(dailyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+
             // Add weekly group costs
             doc.addPage();
-            doc.setFont("helvetica", "bold");
             doc.text('Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)', 10, 10);
-            doc.setFont("helvetica", "normal");
             const sortedWeeks = Object.keys(weeklyCosts).sort();
             const weeklyHead = [['Week (First to Last Day)', 'Total Cost']];
             const weeklyBody = sortedWeeks.map(week => {
@@ -607,7 +662,7 @@
                 const sunday = weekMoment.clone().endOf('isoWeek').format(dateFormat);
                 return [`${monday} to ${sunday}`, `$${weeklyCosts[week].total.toFixed(2)}`];
             });
-            weeklyBody.push(['**Total**', `**$${currentTotalCost.toFixed(2)}**`]);
+            weeklyBody.push(['Total', `$${currentTotalCost.toFixed(2)}`]);
             doc.autoTable({
                 head: weeklyHead,
                 body: weeklyBody,
@@ -616,11 +671,15 @@
                 styles: { font: "helvetica", fontSize: 10 }
             });
 
+            // Add weekly costs bar chart to PDF
+            doc.addPage();
+            doc.text('Weekly Costs Bar Chart', 10, 10);
+            const weeklyChartCanvas = document.getElementById('weeklyCostsChart');
+            doc.addImage(weeklyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+
             // Add weekly headcount
             doc.addPage();
-            doc.setFont("helvetica", "bold");
             doc.text('Weekly Headcount (Grouped by Calendar Week in YYYY-WW Format)', 10, 10);
-            doc.setFont("helvetica", "normal");
             const headcountHead = [['Week (First to Last Day)', 'Headcount']];
             const headcountBody = sortedWeeks.map(week => {
                 const weekMoment = moment().year(week.split('-')[0]).week(week.split('-')[1]);
@@ -636,12 +695,11 @@
                 styles: { font: "helvetica", fontSize: 10 }
             });
 
-            // Add bar chart to PDF
+            // Add headcount bar chart to PDF
             doc.addPage();
-            doc.setFont("helvetica", "bold");
             doc.text('Weekly Headcount Bar Chart', 10, 10);
-            const chartCanvas = document.getElementById('headcountChart');
-            doc.addImage(chartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+            const headcountChartCanvas = document.getElementById('headcountChart');
+            doc.addImage(headcountChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
 
             doc.save('budgeting.pdf');
         }
