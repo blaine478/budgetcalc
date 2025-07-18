@@ -339,50 +339,7 @@
                 }
             });
 
-            // Sort employees by position
-            employees.sort((a, b) => a.Position.localeCompare(b.Position));
-
-            displayPlanTable();
             displayWeekendTable();
-        }
-
-        function displayPlanTable() {
-            const tbody = document.getElementById('planTable').querySelector('tbody');
-            tbody.innerHTML = '';
-            employees.forEach((emp, idx) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><input type="text" class="form-control" value="${emp.LastName}" oninput="updatePlan();"></td>
-                    <td><input type="text" class="form-control" value="${emp.FirstName}" oninput="updatePlan();"></td>
-                    <td><input type="text" class="form-control" value="${emp.Position}" oninput="updatePlan();"></td>
-                    <td><input type="number" class="form-control" value="${emp.HourlyPay}" step="0.01" oninput="updatePlan();"></td>
-                    <td><input type="text" class="form-control start-date-picker" value="${emp.StartDate.format(dateFormat)}" readonly></td>
-                    <td><input type="text" class="form-control layoff-date-picker" value="${emp.ProposedLayoff === 'None (full period)' ? 'None (full period)' : emp.ProposedLayoff}" placeholder="None (full period)" readonly></td>
-                    <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Delete</button></td>
-                `;
-                tbody.appendChild(row);
-                flatpickr(row.querySelector('.start-date-picker'), {
-                    dateFormat: "m-d-Y",
-                    minDate: "07-18-2025",
-                    onChange: function() { updatePlan(); }
-                });
-                flatpickr(row.querySelector('.layoff-date-picker'), {
-                    dateFormat: "m-d-Y",
-                    minDate: "07-18-2025",
-                    onChange: function(selectedDates) { 
-                        if (selectedDates.length === 0) {
-                            row.querySelector('.layoff-date-picker').value = 'None (full period)';
-                        }
-                        updatePlan(); 
-                    },
-                    onClose: function(selectedDates, dateStr, instance) {
-                        if (dateStr === '') {
-                            instance.setDate('', false);
-                            instance.input.value = 'None (full period)';
-                        }
-                    }
-                });
-            });
         }
 
         function displayWeekendTable() {
