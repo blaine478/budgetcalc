@@ -74,12 +74,17 @@
                     <th>Position</th>
                     <th>Rate</th>
                     <th>Start Date</th>
-                    <th>Works Saturday</th>
-                    <th>Works Sunday</th>
                     <th>Layoff Date (MM-DD-YYYY or None)</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody></tbody>
+        </table>
+
+        <h3 class="mt-4">Weekend Work Assignment</h3>
+        <table class="table table-striped" id="weekendTable">
+            <thead id="weekendHead"></thead>
+            <tbody id="weekendBody"></tbody>
         </table>
 
         <button class="btn btn-secondary mt-3" onclick="recalculateCost()" id="recalcBtn">Calculate Costs</button>
@@ -123,6 +128,7 @@
         let dailyCosts = {}; // {date: {empIdx: cost, total: sum}}
         let weeklyCosts = {}; // {weekKey: {total: sum}}
         let weeklyHeadcount = {}; // {weekKey: count}
+        let weekendDates = []; // Array of weekend date strings (YYYY-MM-DD)
         const hoursOptions = [8, 9, 10, 11.5, 12];
         const dateFormat = 'MM-DD-YYYY';
 
@@ -169,10 +175,15 @@
                 <td><input type="text" class="form-control" placeholder="First Name" oninput="updatePlan();"></td>
                 <td><input type="text" class="form-control" placeholder="Position" oninput="updatePlan();"></td>
                 <td><input type="number" class="form-control" placeholder="Hourly Rate" step="0.01" oninput="updatePlan();"></td>
-                <td><input type="text" class="form-control" placeholder="MM-DD-YYYY" oninput="updatePlan();"></td>
+                <td><input type="text" class="form-control hire-date-picker" placeholder="MM-DD-YYYY"></td>
                 <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Remove</button></td>
             `;
             tbody.appendChild(row);
+            flatpickr(row.querySelector('.hire-date-picker'), {
+                dateFormat: "m-d-Y",
+                minDate: "07-18-2025",
+                onChange: function() { updatePlan(); }
+            });
             updatePlan();
         }
 
@@ -202,7 +213,8 @@
                 FirstName: emp['First Name'] || '',
                 Position: emp['Position'] || '',
                 HourlyPay: parseFloat(emp['Rate']) || 0,
-                StartDate: emp['StartDate'] ? moment(emp['StartDate'], 'MM-DD-YYYY') : moment('07-18-2025', dateFormat)
+                StartDate: emp['StartDate'] ? moment(emp['StartDate'], dateFormat) : moment('07-18-2025', dateFormat),
+                WeekendWork: {} // {dateStr: true/false for weekends}
             })).filter(emp => emp.LastName && emp.FirstName && emp.Position && emp.HourlyPay > 0);
             updatePlan();
         }
@@ -241,6 +253,8 @@
                 dailyMultipliers[d.format('YYYY-MM-DD')] = mult;
             });
 
+            weekendDates = workDates.filter(d => d.day() === 6 || d.day() === 0).map(d => d.format('YYYY-MM-DD'));
+
             const tempEmployees = [...employees];
             const newHireRows = Array.from(document.querySelectorAll('#newHiresTable tbody tr'));
             newHireRows.forEach(row => {
@@ -255,21 +269,21 @@
                         FirstName: first,
                         Position: pos,
                         HourlyPay: pay,
-                        StartDate: moment(hDate, dateFormat)
+                        StartDate: moment(hDate, dateFormat),
+                        WeekendWork: {}
                     });
                 }
             });
 
-            tempEmployees.forEach((emp, idx) => {
+            tempEmployees.forEach(emp => {
                 if (!emp.ProposedLayoff) {
                     emp.ProposedLayoff = 'None (full period)';
                 }
-                if (!emp.WorksSaturday) emp.WorksSaturday = true;
-                if (!emp.WorksSunday) emp.WorksSunday = true;
             });
 
             employees = tempEmployees;
             displayPlanTable();
+            displayWeekendTable();
         }
 
         function displayPlanTable() {
@@ -283,11 +297,32 @@
                     <td>${emp.Position}</td>
                     <td>${emp.HourlyPay.toFixed(2)}</td>
                     <td>${emp.StartDate.format(dateFormat)}</td>
-                    <td><input type="checkbox" ${emp.WorksSaturday ? 'checked' : ''} id="sat_${idx}" onchange="employees[${idx}].WorksSaturday = this.checked; recalculateCost();"></td>
-                    <td><input type="checkbox" ${emp.WorksSunday ? 'checked' : ''} id="sun_${idx}" onchange="employees[${idx}].WorksSunday = this.checked; recalculateCost();"></td>
-                    <td contenteditable="true" id="layoff_${idx}" oninput="updatePlan();">${emp.ProposedLayoff === 'None (full period)' ? 'None (full period)' : emp.ProposedLayoff}</td>
+                    <td contenteditable="true" id="layoff_${idx}" oninput="updatePlan();">${emp.ProposedLayoff}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteEmployee(${idx});">Delete</button></td>
                 `;
                 tbody.appendChild(row);
+            });
+        }
+
+        function deleteEmployee(idx) {
+            employees.splice(idx, 1);
+            updatePlan();
+            recalculateCost();
+        }
+
+        function displayWeekendTable() {
+            const head = document.getElementById('weekendHead');
+            head.innerHTML = `<tr><th>Employee</th>${weekendDates.map(d => `<th>${moment(d, 'YYYY-MM-DD').format(dateFormat)}</th>`).join('')}</tr>`;
+
+            const body = document.getElementById('weekendBody');
+            body.innerHTML = '';
+            employees.forEach((emp, idx) => {
+                let row = `<td>${emp.FirstName} ${emp.LastName}</td>`;
+                weekendDates.forEach(d => {
+                    const checked = emp.WeekendWork[d] !== false; // Default true
+                    row += `<td><input type="checkbox" ${checked ? 'checked' : ''} onchange="employees[${idx}].WeekendWork['${d}'] = this.checked; recalculateCost();"></td>`;
+                });
+                body.innerHTML += `<tr>${row}</tr>`;
             });
         }
 
@@ -315,9 +350,10 @@
                 const payI = emp.HourlyPay;
                 const headcountSets = {}; // {weekKey: set of idx}
                 workDates.forEach(d => {
+                    const dateStr = d.format('YYYY-MM-DD');
                     const wd = d.day();
-                    if (d.isSameOrAfter(startI) && d.isBefore(endI) && ((wd !== 6 && wd !== 0) || (wd === 6 && emp.WorksSaturday) || (wd === 0 && emp.WorksSunday))) {
-                        const dateStr = d.format('YYYY-MM-DD');
+                    const worksWeekend = (wd !== 6 && wd !== 0) || emp.WeekendWork[dateStr] !== false;
+                    if (d.isSameOrAfter(startI) && d.isBefore(endI) && worksWeekend) {
                         const h = dailyHours[dateStr];
                         const mult = dailyMultipliers[dateStr];
                         const base_h = Math.min(h, 8);
@@ -454,12 +490,11 @@
                 emp.Position,
                 emp.HourlyPay.toFixed(2),
                 emp.StartDate.format(dateFormat),
-                emp.WorksSaturday ? 'Yes' : 'No',
-                emp.WorksSunday ? 'Yes' : 'No',
+                Object.keys(emp.WeekendWork).map(d => moment(d, 'YYYY-MM-DD').format(dateFormat) + ': ' + (emp.WeekendWork[d] ? 'Yes' : 'No')).join(', '),
                 emp.ProposedLayoff === 'None (full period)' ? 'None' : emp.ProposedLayoff
             ]);
             doc.autoTable({
-                head: [['Last Name', 'First Name', 'Position', 'Rate', 'Start Date', 'Works Saturday', 'Works Sunday', 'Proposed Layoff']],
+                head: [['Last Name', 'First Name', 'Position', 'Rate', 'Start Date', 'Weekend Work', 'Proposed Layoff']],
                 body: tableData,
                 startY: doc.lastAutoTable.finalY + 25
             });
