@@ -64,9 +64,7 @@
             <input type="number" class="form-control" id="budget" step="0.01" min="0">
         </div>
 
-        <button class="btn btn-primary" onclick="loadDataAndCompute()">Load Data and Generate Plan</button>
-
-        <h2 class="mt-4">Proposed Plan</h2>
+        <h2 class="mt-4">Plan</h2>
         <table class="table table-striped" id="planTable">
             <thead>
                 <tr>
@@ -81,11 +79,23 @@
             <tbody></tbody>
         </table>
 
-        <button class="btn btn-secondary mt-3" onclick="recalculateCost()" style="display:none;" id="recalcBtn">Recalculate Cost with Edits</button>
+        <button class="btn btn-secondary mt-3" onclick="recalculateCost()" id="recalcBtn">Calculate Costs</button>
         <p id="status" class="mt-3"></p>
         <p id="warning" class="mt-1"></p>
 
-        <button class="btn btn-success mt-3" onclick="generatePDF()" style="display:none;" id="pdfBtn">Generate and Download PDF</button>
+        <h3 class="mt-4">Daily Costs</h3>
+        <table class="table table-striped" id="dailyCostsTable">
+            <thead id="dailyCostsHead"></thead>
+            <tbody id="dailyCostsBody"></tbody>
+        </table>
+
+        <h3 class="mt-4">Weekly Costs</h3>
+        <table class="table table-striped" id="weeklyCostsTable">
+            <thead id="weeklyCostsHead"></thead>
+            <tbody id="weeklyCostsBody"></tbody>
+        </table>
+
+        <button class="btn btn-success mt-3" onclick="generatePDF()" id="pdfBtn">Generate and Download PDF</button>
     </div>
 
     <script>
@@ -94,10 +104,11 @@
         let workDates = [];
         let dailyHours = {};
         let dailyMultipliers = {};
-        let possibleEnds = [];
         let noLayoffDate = null;
         let budget = 0;
         let currentTotalCost = 0;
+        let dailyCosts = {}; // {date: {empIdx: cost, total: sum}}
+        let weeklyCosts = {}; // {weekKey: {empIdx: cost, total: sum}}
         const hoursOptions = [8, 9, 10, 11.5, 12];
 
         const datePicker = flatpickr("#datePickerInput", {
@@ -129,9 +140,10 @@
                         ${hoursOptions.map(h => `<option value="${h}">${h}</option>`).join('')}
                     </select>
                 </td>
-                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove()">Remove</button></td>
+                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Remove</button></td>
             `;
             tbody.appendChild(row);
+            updatePlan();
         }
 
         function addNewHireRow() {
@@ -143,9 +155,10 @@
                 <td><input type="text" class="form-control" placeholder="Position"></td>
                 <td><input type="number" class="form-control" placeholder="Hourly Rate" step="0.01"></td>
                 <td><input type="text" class="form-control" placeholder="YYYY-MM-DD"></td>
-                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove()">Remove</button></td>
+                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Remove</button></td>
             `;
             tbody.appendChild(row);
+            updatePlan();
         }
 
         function parseExcel(file, callback) {
@@ -161,16 +174,27 @@
             reader.readAsBinaryString(file);
         }
 
-        function loadDataAndCompute() {
-            const employeeFile = document.getElementById('employeeFile').files[0];
-            budget = parseFloat(document.getElementById('budget').value);
-
-            if (!employeeFile || isNaN(budget)) {
-                alert('Please upload employee file and enter a budget.');
-                return;
+        document.getElementById('employeeFile').addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                parseExcel(file, function(emps) {
+                    employees = emps.map(emp => ({
+                        ...emp,
+                        HourlyPay: parseFloat(emp.HourlyPay),
+                        StartDate: emp.StartDate ? moment(emp.StartDate, 'YYYY-MM-DD') : moment('2025-07-18')
+                    }));
+                    updatePlan();
+                });
             }
+        });
 
-            // Collect schedule from table
+        document.getElementById('budget').addEventListener('input', function() {
+            budget = parseFloat(this.value) || 0;
+            updateCostDisplay();
+        });
+
+        function updatePlan() {
+            // Collect schedule
             schedule = [];
             const scheduleRows = Array.from(document.querySelectorAll('#scheduleTable tbody tr'));
             scheduleRows.forEach(row => {
@@ -179,15 +203,9 @@
                 schedule.push({Date: dateStr, Hours: hours});
             });
 
-            if (schedule.length === 0) {
-                alert('Please add at least one work day to the schedule.');
-                return;
-            }
-
             workDates = schedule.map(row => moment(row.Date, 'YYYY-MM-DD'));
             workDates.sort((a,b) => a - b);
-            const startDate = workDates[0];
-            const endDate = workDates[workDates.length - 1];
+            const endDate = workDates.length > 0 ? workDates[workDates.length - 1] : moment();
             noLayoffDate = endDate.clone().add(1, 'days');
 
             dailyHours = {};
@@ -205,48 +223,35 @@
                 dailyMultipliers[d.format('YYYY-MM-DD')] = mult;
             });
 
-            // Possible ends not needed since no optimization, but keep for consistency
-            let fridayDates = workDates.filter(d => d.day() === 5).sort((a,b) => a - b);
-            fridayDates = [...new Set(fridayDates.map(d => d.format('YYYY-MM-DD')))].map(d => moment(d));
-            possibleEnds = fridayDates.concat([noLayoffDate]);
-
-            parseExcel(employeeFile, function(emps) {
-                employees = emps.map(emp => ({
-                    ...emp,
-                    HourlyPay: parseFloat(emp.HourlyPay),
-                    StartDate: emp.StartDate ? moment(emp.StartDate, 'YYYY-MM-DD') : startDate.clone()
-                }));
-
-                // Add new hires from table
-                const newHireRows = Array.from(document.querySelectorAll('#newHiresTable tbody tr'));
-                newHireRows.forEach(row => {
-                    const last = row.cells[0].querySelector('input').value.trim();
-                    const first = row.cells[1].querySelector('input').value.trim();
-                    const pos = row.cells[2].querySelector('input').value.trim();
-                    const pay = parseFloat(row.cells[3].querySelector('input').value);
-                    const hDate = row.cells[4].querySelector('input').value.trim();
-                    if (last && first && pos && !isNaN(pay) && moment(hDate, 'YYYY-MM-DD', true).isValid()) {
-                        employees.push({
-                            LastName: last,
-                            FirstName: first,
-                            Position: pos,
-                            HourlyPay: pay,
-                            StartDate: moment(hDate, 'YYYY-MM-DD')
-                        });
-                    } else if (last || first || pos || pay || hDate) {
-                        alert('Invalid or incomplete new hire entry. Please fill all fields correctly.');
-                        return;
-                    }
-                });
-
-                // No optimization: set all to full period
-                employees.forEach(emp => emp.ProposedLayoff = 'None (full period)');
-                displayPlanTable();
-                recalculateCost();
-                document.getElementById('recalcBtn').style.display = 'block';
-                document.getElementById('pdfBtn').style.display = 'block';
-                updateCostDisplay();
+            // Add new hires
+            const tempEmployees = [...employees];
+            const newHireRows = Array.from(document.querySelectorAll('#newHiresTable tbody tr'));
+            newHireRows.forEach(row => {
+                const last = row.cells[0].querySelector('input').value.trim();
+                const first = row.cells[1].querySelector('input').value.trim();
+                const pos = row.cells[2].querySelector('input').value.trim();
+                const pay = parseFloat(row.cells[3].querySelector('input').value);
+                const hDate = row.cells[4].querySelector('input').value.trim();
+                if (last && first && pos && !isNaN(pay) && moment(hDate, 'YYYY-MM-DD', true).isValid()) {
+                    tempEmployees.push({
+                        LastName: last,
+                        FirstName: first,
+                        Position: pos,
+                        HourlyPay: pay,
+                        StartDate: moment(hDate, 'YYYY-MM-DD')
+                    });
+                }
             });
+
+            // Set or preserve layoffs
+            tempEmployees.forEach((emp, idx) => {
+                if (!emp.ProposedLayoff) {
+                    emp.ProposedLayoff = 'None (full period)';
+                }
+            });
+
+            employees = tempEmployees;
+            displayPlanTable();
         }
 
         function displayPlanTable() {
@@ -260,22 +265,25 @@
                     <td>${emp.Position}</td>
                     <td>${emp.HourlyPay.toFixed(2)}</td>
                     <td>${emp.StartDate.format('YYYY-MM-DD')}</td>
-                    <td contenteditable="true" id="layoff_${idx}">${emp.ProposedLayoff}</td>
+                    <td contenteditable="true" id="layoff_${idx}" oninput="updatePlan();">${emp.ProposedLayoff}</td>
                 `;
                 tbody.appendChild(row);
             });
         }
 
         function recalculateCost() {
+            dailyCosts = {};
+            weeklyCosts = {};
             let totalCost = 0;
             let valid = true;
             employees.forEach((emp, idx) => {
                 let layoff = document.getElementById(`layoff_${idx}`).innerText.trim();
+                emp.ProposedLayoff = layoff;
                 let endI;
                 if (layoff === 'None (full period)') {
                     endI = noLayoffDate;
                 } else {
-                    endI = moment(layoff, 'YYYY-MM-DD').add(1, 'days'); // Work up to layoff day
+                    endI = moment(layoff, 'YYYY-MM-DD').add(1, 'days');
                     if (!endI.isValid()) {
                         alert(`Invalid date for employee ${emp.FirstName} ${emp.LastName}: ${layoff}`);
                         valid = false;
@@ -286,15 +294,88 @@
                 const payI = emp.HourlyPay;
                 workDates.forEach(d => {
                     if (d.isSameOrAfter(startI) && d.isBefore(endI)) {
-                        const h = dailyHours[d.format('YYYY-MM-DD')];
-                        const mult = dailyMultipliers[d.format('YYYY-MM-DD')];
-                        totalCost += h * payI * mult;
+                        const dateStr = d.format('YYYY-MM-DD');
+                        const h = dailyHours[dateStr];
+                        const mult = dailyMultipliers[dateStr];
+                        const dayCost = h * payI * mult;
+                        if (!dailyCosts[dateStr]) dailyCosts[dateStr] = {total: 0};
+                        dailyCosts[dateStr][idx] = dayCost;
+                        dailyCosts[dateStr].total += dayCost;
+
+                        const weekKey = d.format('YYYY-WW'); // e.g., 2025-30
+                        if (!weeklyCosts[weekKey]) weeklyCosts[weekKey] = {total: 0};
+                        if (!weeklyCosts[weekKey][idx]) weeklyCosts[weekKey][idx] = 0;
+                        weeklyCosts[weekKey][idx] += dayCost;
+                        weeklyCosts[weekKey].total += dayCost;
                     }
                 });
             });
             if (!valid) return;
+
+            Object.keys(dailyCosts).forEach(date => {
+                totalCost += dailyCosts[date].total;
+            });
             currentTotalCost = totalCost;
+
+            displayDailyCosts();
+            displayWeeklyCosts();
             updateCostDisplay();
+        }
+
+        function displayDailyCosts() {
+            const sortedDates = Object.keys(dailyCosts).sort();
+            const head = document.getElementById('dailyCostsHead');
+            head.innerHTML = `<tr><th>Employee</th>${sortedDates.map(date => `<th>${date}</th>`).join('')}<th>Total</th></tr>`;
+
+            const body = document.getElementById('dailyCostsBody');
+            body.innerHTML = '';
+            let grandTotal = 0;
+            employees.forEach((emp, idx) => {
+                let rowTotal = 0;
+                let row = `<td>${emp.FirstName} ${emp.LastName}</td>`;
+                sortedDates.forEach(date => {
+                    const cost = dailyCosts[date][idx] || 0;
+                    row += `<td>$${cost.toFixed(2)}</td>`;
+                    rowTotal += cost;
+                });
+                row += `<td>$${rowTotal.toFixed(2)}</td>`;
+                body.innerHTML += `<tr>${row}</tr>`;
+                grandTotal += rowTotal;
+            });
+            let totalRow = `<td>Total</td>`;
+            sortedDates.forEach(date => {
+                totalRow += `<td>$${dailyCosts[date].total.toFixed(2)}</td>`;
+            });
+            totalRow += `<td>$${grandTotal.toFixed(2)}</td>`;
+            body.innerHTML += `<tr>${totalRow}</tr>`;
+        }
+
+        function displayWeeklyCosts() {
+            const sortedWeeks = Object.keys(weeklyCosts).sort();
+            const head = document.getElementById('weeklyCostsHead');
+            head.innerHTML = `<tr><th>Employee</th>${sortedWeeks.map(week => `<th>Week ${week}</th>`).join('')}<th>Total</th></tr>`;
+
+            const body = document.getElementById('weeklyCostsBody');
+            body.innerHTML = '';
+            let grandTotal = 0;
+            employees.forEach((emp, idx) => {
+                let rowTotal = 0;
+                let row = `<td>${emp.FirstName} ${emp.LastName}</td>`;
+                sortedWeeks.forEach(week => {
+                    const cost = weeklyCosts[week][idx] || 0;
+                    row += `<td>$${cost.toFixed(2)}</td>`;
+                    rowTotal += cost;
+                });
+                row += `<td>$${rowTotal.toFixed(2)}</td>`;
+                body.innerHTML += `<tr>${row}</tr>`;
+                grandTotal += rowTotal;
+            });
+            let totalRow = `<td>Total</td>`;
+            sortedWeeks.forEach(week => {
+                totalRow += `<td>$${weeklyCosts[week].total.toFixed(2)}</td>`;
+            });
+            totalRow += `<td>$${grandTotal.toFixed(2)}</td>`;
+            body.innerHTML += `<tr>${totalRow}</tr>`;
         }
 
         function updateCostDisplay() {
@@ -323,21 +404,64 @@
                 startY: 55
             });
 
-            // Add plan table
+            // Add employee plan table
             doc.text('Employee Plan', 10, doc.lastAutoTable.finalY + 20);
-            const tableData = employees.map((emp, idx) => [
+            const tableData = employees.map(emp => [
                 emp.LastName,
                 emp.FirstName,
                 emp.Position,
                 emp.HourlyPay.toFixed(2),
                 emp.StartDate.format('YYYY-MM-DD'),
-                document.getElementById(`layoff_${idx}`).innerText
+                emp.ProposedLayoff
             ]);
-
             doc.autoTable({
                 head: [['LastName', 'FirstName', 'Position', 'HourlyPay', 'StartDate', 'ProposedLayoff']],
                 body: tableData,
                 startY: doc.lastAutoTable.finalY + 25
+            });
+
+            // Add daily costs
+            doc.addPage();
+            doc.text('Daily Costs', 10, 10);
+            const sortedDates = Object.keys(dailyCosts).sort();
+            const dailyHead = [['Employee', ...sortedDates, 'Total']];
+            const dailyBody = employees.map((emp, idx) => {
+                let rowTotal = 0;
+                const costs = sortedDates.map(date => {
+                    const cost = dailyCosts[date][idx] || 0;
+                    rowTotal += cost;
+                    return `$${cost.toFixed(2)}`;
+                });
+                return [`${emp.FirstName} ${emp.LastName}`, ...costs, `$${rowTotal.toFixed(2)}`];
+            });
+            const dailyTotalRow = ['Total', ...sortedDates.map(date => `$${dailyCosts[date].total.toFixed(2)}`), `$${currentTotalCost.toFixed(2)}`];
+            dailyBody.push(dailyTotalRow);
+            doc.autoTable({
+                head: dailyHead,
+                body: dailyBody,
+                startY: 15
+            });
+
+            // Add weekly costs
+            doc.addPage();
+            doc.text('Weekly Costs', 10, 10);
+            const sortedWeeks = Object.keys(weeklyCosts).sort();
+            const weeklyHead = [['Employee', ...sortedWeeks.map(week => `Week ${week}`), 'Total']];
+            const weeklyBody = employees.map((emp, idx) => {
+                let rowTotal = 0;
+                const costs = sortedWeeks.map(week => {
+                    const cost = weeklyCosts[week][idx] || 0;
+                    rowTotal += cost;
+                    return `$${cost.toFixed(2)}`;
+                });
+                return [`${emp.FirstName} ${emp.LastName}`, ...costs, `$${rowTotal.toFixed(2)}`];
+            });
+            const weeklyTotalRow = ['Total', ...sortedWeeks.map(week => `$${weeklyCosts[week].total.toFixed(2)}`), `$${currentTotalCost.toFixed(2)}`];
+            weeklyBody.push(weeklyTotalRow);
+            doc.autoTable({
+                head: weeklyHead,
+                body: weeklyBody,
+                startY: 15
             });
 
             doc.save('layoff_plan.pdf');
