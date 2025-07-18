@@ -29,8 +29,8 @@
         </div>
 
         <h3>Build Work Schedule</h3>
-        <p>Select work days using the calendar and assign hours for each day. You can add multiple days across weeks.</p>
-        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Day</button>
+        <p>Select multiple work days using the calendar (hold Ctrl/Cmd to pick non-consecutive days, or select ranges with Shift). Assign hours for each day.</p>
+        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Days</button>
         <input id="datePickerInput">
         <table class="table table-striped" id="scheduleTable">
             <thead>
@@ -43,10 +43,21 @@
             <tbody></tbody>
         </table>
 
-        <div class="mb-3">
-            <label for="newHires" class="form-label">Add New Hires (one per line: LastName,FirstName,Position,HourlyPay,StartDate (YYYY-MM-DD))</label>
-            <textarea class="form-control" id="newHires" rows="5"></textarea>
-        </div>
+        <h3>Add New Hires</h3>
+        <button class="btn btn-secondary mb-3" onclick="addNewHireRow()">Add New Hire</button>
+        <table class="table table-striped" id="newHiresTable">
+            <thead>
+                <tr>
+                    <th>Last Name</th>
+                    <th>First Name</th>
+                    <th>Position</th>
+                    <th>Hourly Rate</th>
+                    <th>Hire Date (YYYY-MM-DD)</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
         <div class="mb-3">
             <label for="budget" class="form-label">Total Budget</label>
@@ -91,12 +102,14 @@
 
         const datePicker = flatpickr("#datePickerInput", {
             dateFormat: "Y-m-d",
-            minDate: "2025-07-18", // Current date from context
-            onChange: function(selectedDates) {
-                if (selectedDates[0]) {
-                    const selectedMoment = moment(selectedDates[0]);
+            minDate: "2025-07-18",
+            mode: "multiple",
+            onClose: function(selectedDates) {
+                selectedDates.forEach(date => {
+                    const selectedMoment = moment(date);
                     addScheduleRow(selectedMoment);
-                }
+                });
+                datePicker.clear(); // Clear selections for next use
             }
         });
 
@@ -104,8 +117,7 @@
             const dateStr = date.format('YYYY-MM-DD');
             const existingRows = Array.from(document.querySelectorAll('#scheduleTable tbody tr'));
             if (existingRows.some(row => row.cells[0].textContent === dateStr)) {
-                alert('Date already added.');
-                return;
+                return; // Skip if already added
             }
 
             const tbody = document.getElementById('scheduleTable').querySelector('tbody');
@@ -117,6 +129,20 @@
                         ${hoursOptions.map(h => `<option value="${h}">${h}</option>`).join('')}
                     </select>
                 </td>
+                <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove()">Remove</button></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        function addNewHireRow() {
+            const tbody = document.getElementById('newHiresTable').querySelector('tbody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" class="form-control" placeholder="Last Name"></td>
+                <td><input type="text" class="form-control" placeholder="First Name"></td>
+                <td><input type="text" class="form-control" placeholder="Position"></td>
+                <td><input type="number" class="form-control" placeholder="Hourly Rate" step="0.01"></td>
+                <td><input type="text" class="form-control" placeholder="YYYY-MM-DD"></td>
                 <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove()">Remove</button></td>
             `;
             tbody.appendChild(row);
@@ -191,25 +217,27 @@
                     StartDate: emp.StartDate ? moment(emp.StartDate, 'YYYY-MM-DD') : startDate.clone()
                 }));
 
-                // Add new hires
-                const newHiresText = document.getElementById('newHires').value;
-                if (newHiresText) {
-                    newHiresText.split('\n').forEach(line => {
-                        if (line.trim()) {
-                            const parts = line.split(',');
-                            if (parts.length === 5) {
-                                const [last, first, pos, pay, hDate] = parts.map(p => p.trim());
-                                employees.push({
-                                    LastName: last,
-                                    FirstName: first,
-                                    Position: pos,
-                                    HourlyPay: parseFloat(pay),
-                                    StartDate: moment(hDate, 'YYYY-MM-DD')
-                                });
-                            }
-                        }
-                    });
-                }
+                // Add new hires from table
+                const newHireRows = Array.from(document.querySelectorAll('#newHiresTable tbody tr'));
+                newHireRows.forEach(row => {
+                    const last = row.cells[0].querySelector('input').value.trim();
+                    const first = row.cells[1].querySelector('input').value.trim();
+                    const pos = row.cells[2].querySelector('input').value.trim();
+                    const pay = parseFloat(row.cells[3].querySelector('input').value);
+                    const hDate = row.cells[4].querySelector('input').value.trim();
+                    if (last && first && pos && !isNaN(pay) && moment(hDate, 'YYYY-MM-DD', true).isValid()) {
+                        employees.push({
+                            LastName: last,
+                            FirstName: first,
+                            Position: pos,
+                            HourlyPay: pay,
+                            StartDate: moment(hDate, 'YYYY-MM-DD')
+                        });
+                    } else if (last || first || pos || pay || hDate) {
+                        alert('Invalid or incomplete new hire entry. Please fill all fields correctly.');
+                        return;
+                    }
+                });
 
                 // No optimization: set all to full period
                 employees.forEach(emp => emp.ProposedLayoff = 'None (full period)');
