@@ -25,8 +25,8 @@
     <label for="employeeFile">Upload Employee Data (Excel: LastName, FirstName, Position, HourlyPay)</label><br>
     <input type="file" id="employeeFile" accept=".xlsx"><br>
 
-    <label for="scheduleFile">Upload Work Schedule (Excel: Date (YYYY-MM-DD), Hours)</label><br>
-    <input type="file" id="scheduleFile" accept=".xlsx"><br>
+    <label for="scheduleInput">Enter Work Schedule (one per line: Date(YYYY-MM-DD),Hours)</label><br>
+    <textarea id="scheduleInput" rows="10" cols="50"></textarea><br>
 
     <label for="newHires">Add New Hires (one per line: LastName,FirstName,Position,HourlyPay,StartDate (YYYY-MM-DD))</label><br>
     <textarea id="newHires" rows="5" cols="50"></textarea><br>
@@ -34,7 +34,10 @@
     <label for="budget">Total Budget</label><br>
     <input type="number" id="budget" step="0.01" min="0"><br>
 
-    <button onclick="loadDataAndCompute()">Compute Optimal Plan</button><br>
+    <label for="optimize">Compute Optimal Layoffs? (Uncheck for manual only)</label>
+    <input type="checkbox" id="optimize" checked><br>
+
+    <button onclick="loadDataAndCompute()">Load Data and Plan</button><br>
 
     <h2>Proposed Plan</h2>
     <table id="planTable">
@@ -83,71 +86,100 @@
 
         function loadDataAndCompute() {
             const employeeFile = document.getElementById('employeeFile').files[0];
-            const scheduleFile = document.getElementById('scheduleFile').files[0];
+            const scheduleText = document.getElementById('scheduleInput').value;
             budget = parseFloat(document.getElementById('budget').value);
 
-            if (!employeeFile || !scheduleFile || isNaN(budget)) {
-                alert('Please upload both files and enter a budget.');
+            if (!employeeFile || !scheduleText || isNaN(budget)) {
+                alert('Please upload employee file, enter schedule, and enter a budget.');
                 return;
             }
 
-            parseExcel(scheduleFile, function(sched) {
-                schedule = sched;
-                workDates = schedule.map(row => moment(row.Date, 'YYYY-MM-DD'));
-                workDates.sort((a,b) => a - b);
-                const startDate = workDates[0];
-                const endDate = workDates[workDates.length - 1];
-                noLayoffDate = endDate.clone().add(1, 'days');
-
-                dailyHours = {};
-                schedule.forEach(row => {
-                    const d = moment(row.Date, 'YYYY-MM-DD');
-                    dailyHours[d.format('YYYY-MM-DD')] = row.Hours;
-                });
-
-                dailyMultipliers = {};
-                workDates.forEach(d => {
-                    const wd = d.day(); // 0=Sun, 6=Sat
-                    let mult = 1.0;
-                    if (wd === 6) mult = 1.5; // Saturday
-                    if (wd === 0) mult = 2.0; // Sunday
-                    dailyMultipliers[d.format('YYYY-MM-DD')] = mult;
-                });
-
-                // Possible layoff dates: Fridays (weekday 5 in moment, 0=Sun,5=Fri,6=Sat)
-                let fridayDates = workDates.filter(d => d.day() === 5).sort((a,b) => a - b);
-                fridayDates = [...new Set(fridayDates.map(d => d.format('YYYY-MM-DD')))].map(d => moment(d));
-                possibleEnds = fridayDates.concat([noLayoffDate]);
-
-                parseExcel(employeeFile, function(emps) {
-                    employees = emps.map(emp => ({
-                        ...emp,
-                        HourlyPay: parseFloat(emp.HourlyPay),
-                        StartDate: emp.StartDate ? moment(emp.StartDate, 'YYYY-MM-DD') : startDate.clone()
-                    }));
-
-                    // Add new hires
-                    const newHiresText = document.getElementById('newHires').value;
-                    if (newHiresText) {
-                        newHiresText.split('\n').forEach(line => {
-                            if (line.trim()) {
-                                const parts = line.split(',');
-                                if (parts.length === 5) {
-                                    const [last, first, pos, pay, hDate] = parts.map(p => p.trim());
-                                    employees.push({
-                                        LastName: last,
-                                        FirstName: first,
-                                        Position: pos,
-                                        HourlyPay: parseFloat(pay),
-                                        StartDate: moment(hDate, 'YYYY-MM-DD')
-                                    });
-                                }
-                            }
-                        });
+            // Parse schedule from textarea
+            schedule = [];
+            scheduleText.split('\n').forEach(line => {
+                if (line.trim()) {
+                    const parts = line.split(',');
+                    if (parts.length === 2) {
+                        const dateStr = parts[0].trim();
+                        const hours = parseFloat(parts[1].trim());
+                        if (moment(dateStr, 'YYYY-MM-DD', true).isValid() && !isNaN(hours)) {
+                            schedule.push({Date: dateStr, Hours: hours});
+                        } else {
+                            alert('Invalid schedule line: ' + line);
+                            return;
+                        }
                     }
+                }
+            });
 
+            if (schedule.length === 0) {
+                alert('No valid schedule entries.');
+                return;
+            }
+
+            workDates = schedule.map(row => moment(row.Date, 'YYYY-MM-DD'));
+            workDates.sort((a,b) => a - b);
+            const startDate = workDates[0];
+            const endDate = workDates[workDates.length - 1];
+            noLayoffDate = endDate.clone().add(1, 'days');
+
+            dailyHours = {};
+            schedule.forEach(row => {
+                const d = moment(row.Date, 'YYYY-MM-DD');
+                dailyHours[d.format('YYYY-MM-DD')] = row.Hours;
+            });
+
+            dailyMultipliers = {};
+            workDates.forEach(d => {
+                const wd = d.day(); // 0=Sun, 6=Sat
+                let mult = 1.0;
+                if (wd === 6) mult = 1.5; // Saturday
+                if (wd === 0) mult = 2.0; // Sunday
+                dailyMultipliers[d.format('YYYY-MM-DD')] = mult;
+            });
+
+            // Possible layoff dates: Fridays (weekday 5 in moment, 0=Sun,5=Fri,6=Sat)
+            let fridayDates = workDates.filter(d => d.day() === 5).sort((a,b) => a - b);
+            fridayDates = [...new Set(fridayDates.map(d => d.format('YYYY-MM-DD')))].map(d => moment(d));
+            possibleEnds = fridayDates.concat([noLayoffDate]);
+
+            parseExcel(employeeFile, function(emps) {
+                employees = emps.map(emp => ({
+                    ...emp,
+                    HourlyPay: parseFloat(emp.HourlyPay),
+                    StartDate: emp.StartDate ? moment(emp.StartDate, 'YYYY-MM-DD') : startDate.clone()
+                }));
+
+                // Add new hires
+                const newHiresText = document.getElementById('newHires').value;
+                if (newHiresText) {
+                    newHiresText.split('\n').forEach(line => {
+                        if (line.trim()) {
+                            const parts = line.split(',');
+                            if (parts.length === 5) {
+                                const [last, first, pos, pay, hDate] = parts.map(p => p.trim());
+                                employees.push({
+                                    LastName: last,
+                                    FirstName: first,
+                                    Position: pos,
+                                    HourlyPay: parseFloat(pay),
+                                    StartDate: moment(hDate, 'YYYY-MM-DD')
+                                });
+                            }
+                        }
+                    });
+                }
+
+                if (document.getElementById('optimize').checked) {
                     computeOptimalPlan();
-                });
+                } else {
+                    employees.forEach(emp => emp.ProposedLayoff = 'None (full period)');
+                    displayPlanTable();
+                    recalculateCost();
+                    document.getElementById('recalcBtn').style.display = 'block';
+                    document.getElementById('pdfBtn').style.display = 'block';
+                    updateCostDisplay();
+                }
             });
         }
 
@@ -232,7 +264,7 @@
                 document.getElementById('pdfBtn').style.display = 'block';
                 updateCostDisplay();
             } else {
-                alert('No feasible solution found. Try increasing the budget.');
+                alert('No feasible solution found. Try increasing the budget or uncheck optimize to start manual.');
             }
         }
 
@@ -255,6 +287,7 @@
 
         function recalculateCost() {
             let totalCost = 0;
+            let valid = true;
             employees.forEach((emp, idx) => {
                 let layoff = document.getElementById(`layoff_${idx}`).innerText.trim();
                 let endI;
@@ -263,7 +296,8 @@
                 } else {
                     endI = moment(layoff, 'YYYY-MM-DD').add(1, 'days'); // Work up to layoff day
                     if (!endI.isValid()) {
-                        alert(`Invalid date for employee ${idx}: ${layoff}`);
+                        alert(`Invalid date for employee ${emp.FirstName} ${emp.LastName}: ${layoff}`);
+                        valid = false;
                         return;
                     }
                 }
@@ -277,6 +311,7 @@
                     }
                 });
             });
+            if (!valid) return;
             currentTotalCost = totalCost;
             updateCostDisplay();
         }
