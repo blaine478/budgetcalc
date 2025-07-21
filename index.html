@@ -66,58 +66,158 @@
         #warning { color: #ff3b30; }
         canvas { background: white; border-radius: 18px; padding: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); margin-bottom: 20px; }
         .chart-container { margin-top: 20px; }
+        .dashboard-summary {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background: #f5f5f7;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .summary-card h4 {
+            margin-bottom: 5px;
+            font-size: 1rem;
+            color: #6e6e73;
+        }
+        .summary-card p {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .accordion-button {
+            border-radius: 12px;
+            background-color: #f5f5f7;
+        }
+        .accordion-item {
+            border: none;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .accordion-body {
+            background: white;
+        }
+        .help-icon {
+            cursor: pointer;
+            margin-left: 5px;
+            color: #0071e3;
+        }
+        .position-header {
+            background-color: #e5e5ea;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="mb-4">Budgeting</h1>
 
-        <div class="mb-3">
-            <label for="employeeFile" class="form-label">Upload Employee Data (Excel: Last Name, First Name, Position, Rate)</label>
-            <input type="file" class="form-control" id="employeeFile" accept=".xlsx">
+        <div class="dashboard-summary">
+            <div class="summary-card">
+                <h4>Total Cost</h4>
+                <p id="totalCostSummary">$0.00</p>
+            </div>
+            <div class="summary-card">
+                <h4>Budget Status</h4>
+                <p id="budgetStatusSummary">Under Budget</p>
+            </div>
+            <div class="summary-card">
+                <h4>Total Employees</h4>
+                <p id="totalEmployeesSummary">0</p>
+            </div>
+            <div class="summary-card">
+                <h4>Total Work Days</h4>
+                <p id="totalWorkDaysSummary">0</p>
+            </div>
         </div>
 
-        <h3>Build Work Schedule</h3>
-        <p>Select multiple work days using the calendar (hold Ctrl/Cmd to pick non-consecutive days, or select ranges with Shift). Assign hours for each day.</p>
-        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Days</button>
-        <input id="datePickerInput">
-        <table class="table table-striped" id="scheduleTable">
-            <thead>
-                <tr>
-                    <th>Date (MM-DD-YYYY)</th>
-                    <th>Hours</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div class="accordion" id="sectionsAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingSchedule">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSchedule" aria-expanded="true" aria-controls="collapseSchedule">
+                        Build Work Schedule
+                    </button>
+                </h2>
+                <div id="collapseSchedule" class="accordion-collapse collapse show" aria-labelledby="headingSchedule">
+                    <div class="accordion-body">
+                        <p>Select multiple work days using the calendar (hold Ctrl/Cmd to pick non-consecutive days, or select ranges with Shift). The first selected day is included. Assign hours for each day.<span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Tip: Select days in order for better organization.">ℹ️</span></p>
+                        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Days</button>
+                        <input id="datePickerInput">
+                        <table class="table table-striped" id="scheduleTable">
+                            <thead>
+                                <tr>
+                                    <th>Date (MM-DD-YYYY)</th>
+                                    <th>Hours</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-        <h3>Employees</h3>
-        <button class="btn btn-secondary mb-3" onclick="addEmployeeRow()">Add Employee</button>
-        <table class="table table-striped" id="planTable">
-            <thead>
-                <tr>
-                    <th>Last Name</th>
-                    <th>First Name</th>
-                    <th>Position</th>
-                    <th>Rate</th>
-                    <th>Start Date (MM-DD-YYYY)</th>
-                    <th>Layoff Date (MM-DD-YYYY or None)</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingEmployees">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEmployees" aria-expanded="false" aria-controls="collapseEmployees">
+                        Employees
+                    </button>
+                </h2>
+                <div id="collapseEmployees" class="accordion-collapse collapse" aria-labelledby="headingEmployees">
+                    <div class="accordion-body">
+                        <button class="btn btn-secondary mb-3" onclick="addEmployeeRow()">Add Employee</button>
+                        <table class="table table-striped" id="planTable">
+                            <thead>
+                                <tr>
+                                    <th>Last Name</th>
+                                    <th>First Name</th>
+                                    <th>Position</th>
+                                    <th>Rate</th>
+                                    <th>Start Date (MM-DD-YYYY)</th>
+                                    <th>Layoff Date (MM-DD-YYYY or None)</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-        <h3 class="mt-4">Weekend Work Assignment</h3>
-        <table class="table table-striped" id="weekendTable">
-            <thead id="weekendHead"></thead>
-            <tbody id="weekendBody"></tbody>
-        </table>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingWeekend">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeekend" aria-expanded="false" aria-controls="collapseWeekend">
+                        Weekend Work Assignment
+                    </button>
+                </h2>
+                <div id="collapseWeekend" class="accordion-collapse collapse" aria-labelledby="headingWeekend">
+                    <div class="accordion-body">
+                        <table class="table table-striped" id="weekendTable">
+                            <thead id="weekendHead"></thead>
+                            <tbody id="weekendBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-        <div class="mb-3">
-            <label for="budget" class="form-label">Total Budget</label>
-            <input type="number" class="form-control" id="budget" step="0.01" min="0">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingBudget">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBudget" aria-expanded="false" aria-controls="collapseBudget">
+                        Total Budget
+                    </button>
+                </h2>
+                <div id="collapseBudget" class="accordion-collapse collapse" aria-labelledby="headingBudget">
+                    <div class="accordion-body">
+                        <label for="budget" class="form-label">Total Budget</label>
+                        <input type="number" class="form-control" id="budget" step="0.01" min="0">
+                    </div>
+                </div>
+            </div>
         </div>
 
         <button class="btn btn-secondary mt-3" onclick="saveState()">Save State</button>
@@ -127,37 +227,85 @@
         <p id="status" class="mt-3"></p>
         <p id="warning" class="mt-1"></p>
 
-        <h3 class="mt-4">Daily Costs for Selected Day</h3>
-        <select id="selectedDay" class="form-select mb-3" onchange="displayDailyCostsForDay(this.value)">
-            <option value="">Select a day</option>
-        </select>
-        <table class="table table-striped" id="dailyCostsTable">
-            <thead><tr><th>Employee</th><th>Cost</th></tr></thead>
-            <tbody id="dailyCostsBody"></tbody>
-        </table>
+        <div class="accordion" id="resultsAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingDailyCosts">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDailyCosts" aria-expanded="false" aria-controls="collapseDailyCosts">
+                        Daily Costs for Selected Day
+                    </button>
+                </h2>
+                <div id="collapseDailyCosts" class="accordion-collapse collapse" aria-labelledby="headingDailyCosts">
+                    <div class="accordion-body">
+                        <select id="selectedDay" class="form-select mb-3" onchange="displayDailyCostsForDay(this.value)">
+                            <option value="">Select a day</option>
+                        </select>
+                        <table class="table table-striped" id="dailyCostsTable">
+                            <thead><tr><th>Employee</th><th>Cost</th></tr></thead>
+                            <tbody id="dailyCostsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-        <div class="chart-container">
-            <h3>Daily Costs Bar Chart</h3>
-            <canvas id="dailyCostsChart" height="200"></canvas>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingDailyChart">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDailyChart" aria-expanded="false" aria-controls="collapseDailyChart">
+                        Daily Costs Bar Chart
+                    </button>
+                </h2>
+                <div id="collapseDailyChart" class="accordion-collapse collapse" aria-labelledby="headingDailyChart">
+                    <div class="accordion-body">
+                        <canvas id="dailyCostsChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingWeeklyCosts">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeeklyCosts" aria-expanded="false" aria-controls="collapseWeeklyCosts">
+                        Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)
+                    </button>
+                </h2>
+                <div id="collapseWeeklyCosts" class="accordion-collapse collapse" aria-labelledby="headingWeeklyCosts">
+                    <div class="accordion-body">
+                        <table class="table table-striped" id="weeklyCostsTable">
+                            <thead><tr><th>Week (First to Last Day)</th><th>Total Cost</th></tr></thead>
+                            <tbody id="weeklyCostsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingWeeklyChart">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeeklyChart" aria-expanded="false" aria-controls="collapseWeeklyChart">
+                        Weekly Costs Bar Chart
+                    </button>
+                </h2>
+                <div id="collapseWeeklyChart" class="accordion-collapse collapse" aria-labelledby="headingWeeklyChart">
+                    <div class="accordion-body">
+                        <canvas id="weeklyCostsChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingHeadcount">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHeadcount" aria-expanded="false" aria-controls="collapseHeadcount">
+                        Weekly Headcount Flow (Grouped by Calendar Week in YYYY-WW Format)
+                    </button>
+                </h2>
+                <div id="collapseHeadcount" class="accordion-collapse collapse" aria-labelledby="headingHeadcount">
+                    <div class="accordion-body">
+                        <canvas id="headcountChart" height="200"></canvas>
+                        <table class="table table-striped mt-3" id="headcountTable">
+                            <thead><tr><th>Week</th><th>Headcount</th></tr></thead>
+                            <tbody id="headcountBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <h3 class="mt-4">Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)</h3>
-        <table class="table table-striped" id="weeklyCostsTable">
-            <thead><tr><th>Week (First to Last Day)</th><th>Total Cost</th></tr></thead>
-            <tbody id="weeklyCostsBody"></tbody>
-        </table>
-
-        <div class="chart-container">
-            <h3>Weekly Costs Bar Chart</h3>
-            <canvas id="weeklyCostsChart" height="200"></canvas>
-        </div>
-
-        <h3 class="mt-4">Weekly Headcount Flow (Grouped by Calendar Week in YYYY-WW Format)</h3>
-        <canvas id="headcountChart" height="200"></canvas>
-        <table class="table table-striped mt-3" id="headcountTable">
-            <thead><tr><th>Week</th><th>Headcount</th></tr></thead>
-            <tbody id="headcountBody"></tbody>
-        </table>
 
         <button class="btn btn-success mt-3" onclick="generatePDF()">Generate and Download PDF</button>
     </div>
@@ -339,6 +487,9 @@
                 }
             });
 
+            // Sort employees by position
+            employees.sort((a, b) => a.Position.localeCompare(b.Position));
+
             displayWeekendTable();
         }
 
@@ -428,6 +579,12 @@
             displayWeeklyCostsChart(sortedWeeks);
             updateCostDisplay();
             displayDailyCostsForDay(select.value);
+
+            // Update summary cards
+            document.getElementById('totalCostSummary').innerText = `$${currentTotalCost.toFixed(2)}`;
+            document.getElementById('budgetStatusSummary').innerText = currentTotalCost > budget ? 'Over Budget' : 'Under Budget';
+            document.getElementById('totalEmployeesSummary').innerText = employees.length;
+            document.getElementById('totalWorkDaysSummary').innerText = workDates.length;
         }
 
         function displayDailyCostsForDay(date) {
