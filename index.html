@@ -115,7 +115,12 @@
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4">Budgeting</h1>
+        <div class="mb-3">
+            <label for="customTitle" class="form-label">Custom Title</label>
+            <input type="text" class="form-control" id="customTitle" value="Budgeting" placeholder="Enter custom title">
+        </div>
+
+        <h1 class="mb-4" id="appTitle">Budgeting</h1>
 
         <div class="dashboard-summary">
             <div class="summary-card">
@@ -432,6 +437,10 @@
         document.getElementById('budget').addEventListener('input', function() {
             budget = parseFloat(this.value) || 0;
             updateCostDisplay();
+        });
+
+        document.getElementById('customTitle').addEventListener('input', function() {
+            document.getElementById('appTitle').innerText = this.value || 'Budgeting';
         });
 
         function updatePlan() {
@@ -752,8 +761,10 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
+            const customTitle = document.getElementById('customTitle').value || 'Budgeting';
+
             doc.setFont("helvetica", "normal");
-            doc.text('Budgeting', 10, 10);
+            doc.text(customTitle, 10, 10);
             doc.text(`Budget: $${budget.toFixed(2)}`, 10, 20);
             doc.text(`Total Cost: $${currentTotalCost.toFixed(2)}`, 10, 30);
 
