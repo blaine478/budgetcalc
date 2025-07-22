@@ -385,8 +385,8 @@
             const tbody = document.getElementById('planTable').querySelector('tbody');
             tbody.innerHTML = ''; // Clear existing rows to avoid duplication
             emps.forEach(emp => {
-                if (emp['Last Name'] && emp['First Name'] && emp['Position'] && emp['Rate']) {
-                    addEmployeeRow(emp['Last Name'], emp['First Name'], emp['Position'], emp['Rate'], emp['StartDate'] ? moment(emp['StartDate'], dateFormat).format(dateFormat) : '07-18-2025', 'None (full period)');
+                if (emp['last name'] && emp['first name'] && emp['position'] && emp['rate']) {
+                    addEmployeeRow(emp['last name'], emp['first name'], emp['position'], emp['rate'], emp['start date'] ? moment(emp['start date'], dateFormat).format(dateFormat) : '07-18-2025', 'None (full period)');
                 }
             });
             updatePlan();
