@@ -142,38 +142,17 @@
 
         <div class="accordion" id="sectionsAccordion">
             <div class="accordion-item">
-                <h2 class="accordion-header" id="headingSchedule">
-                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSchedule" aria-expanded="true" aria-controls="collapseSchedule">
-                        Build Work Schedule
-                    </button>
-                </h2>
-                <div id="collapseSchedule" class="accordion-collapse collapse show" aria-labelledby="headingSchedule">
-                    <div class="accordion-body">
-                        <p>Select multiple work days using the calendar (hold Ctrl/Cmd to pick non-consecutive days, or select ranges with Shift). The first selected day is included. Assign hours for each day.<span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Tip: Select days in order for better organization.">ℹ️</span></p>
-                        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Days</button>
-                        <input id="datePickerInput">
-                        <table class="table table-striped" id="scheduleTable">
-                            <thead>
-                                <tr>
-                                    <th>Date (MM-DD-YYYY)</th>
-                                    <th>Hours</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="accordion-item">
                 <h2 class="accordion-header" id="headingEmployees">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEmployees" aria-expanded="false" aria-controls="collapseEmployees">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEmployees" aria-expanded="true" aria-controls="collapseEmployees">
                         Employees
                     </button>
                 </h2>
-                <div id="collapseEmployees" class="accordion-collapse collapse" aria-labelledby="headingEmployees">
+                <div id="collapseEmployees" class="accordion-collapse collapse show" aria-labelledby="headingEmployees">
                     <div class="accordion-body">
+                        <div class="mb-3">
+                            <label for="employeeFile" class="form-label">Upload Employee List (Excel: Last Name, First Name, Position, Rate)</label>
+                            <input type="file" class="form-control" id="employeeFile" accept=".xlsx,.xls">
+                        </div>
                         <button class="btn btn-secondary mb-3" onclick="addEmployeeRow()">Add Employee</button>
                         <table class="table table-striped" id="planTable">
                             <thead>
@@ -184,6 +163,31 @@
                                     <th>Rate</th>
                                     <th>Start Date (MM-DD-YYYY)</th>
                                     <th>Layoff Date (MM-DD-YYYY or None)</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingSchedule">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSchedule" aria-expanded="false" aria-controls="collapseSchedule">
+                        Build Work Schedule
+                    </button>
+                </h2>
+                <div id="collapseSchedule" class="accordion-collapse collapse" aria-labelledby="headingSchedule">
+                    <div class="accordion-body">
+                        <p>Select multiple work days using the calendar (hold Ctrl/Cmd to pick non-consecutive days, or select ranges with Shift). The first selected day is included. Assign hours for each day.<span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Tip: Select days in order for better organization.">ℹ️</span></p>
+                        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Days</button>
+                        <input id="datePickerInput">
+                        <table class="table table-striped" id="scheduleTable">
+                            <thead>
+                                <tr>
+                                    <th>Date (MM-DD-YYYY)</th>
+                                    <th>Hours</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -350,7 +354,7 @@
                 return; // Skip if already added
             }
 
-            const tbody = document.getElementById('scheduleTable').querySelector('tbody');
+            const tbody = document.querySelector('#scheduleTable tbody');
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${dateStr}</td>
@@ -368,12 +372,19 @@
         function parseExcel(file, callback) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                const data = e.target.result;
-                const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
-                const sheetName = workbook.SheetNames[0];
-                const sheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-                callback(json);
+                try {
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                    callback(json);
+                } catch (error) {
+                    alert('Error reading Excel file: ' + error.message);
+                }
+            };
+            reader.onerror = function() {
+                alert('Failed to read the file. Please ensure it is a valid .xlsx or .xls file.');
             };
             reader.readAsBinaryString(file);
         }
@@ -386,26 +397,41 @@
         });
 
         function loadEmployeesFromExcel(emps) {
-            const tbody = document.getElementById('planTable').querySelector('tbody');
+            const tbody = document.querySelector('#planTable tbody');
             tbody.innerHTML = ''; // Clear existing rows to avoid duplication
+            let validRows = 0;
             emps.forEach(emp => {
-                if (emp['Last Name'] && emp['First Name'] && emp['Position'] && emp['Rate']) {
-                    addEmployeeRow(emp['Last Name'], emp['First Name'], emp['Position'], emp['Rate'], emp['Start Date'] ? moment(emp['Start Date'], dateFormat).format(dateFormat) : '07-18-2025', 'None (full period)');
+                // Check for required columns and valid data
+                if (emp['Last Name'] && emp['First Name'] && emp['Position'] && emp['Rate'] !== '' && !isNaN(parseFloat(emp['Rate']))) {
+                    addEmployeeRow(
+                        emp['Last Name'].toString().trim(),
+                        emp['First Name'].toString().trim(),
+                        emp['Position'].toString().trim(),
+                        parseFloat(emp['Rate']),
+                        emp['Start Date'] ? moment(emp['Start Date'], dateFormat).isValid() ? moment(emp['Start Date'], dateFormat).format(dateFormat) : '07-18-2025' : '07-18-2025',
+                        'None (full period)'
+                    );
+                    validRows++;
                 }
             });
+            if (validRows === 0) {
+                alert('No valid employee data found in the Excel file. Ensure it has columns: Last Name, First Name, Position, Rate.');
+            } else {
+                alert(`${validRows} employee(s) loaded successfully from the Excel file.`);
+            }
             updatePlan();
         }
 
         function addEmployeeRow(last = '', first = '', pos = '', rate = '', start = '07-18-2025', layoff = 'None (full period)') {
-            const tbody = document.getElementById('planTable').querySelector('tbody');
+            const tbody = document.querySelector('#planTable tbody');
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><input type="text" class="form-control" value="${last}" oninput="updatePlan();"></td>
                 <td><input type="text" class="form-control" value="${first}" oninput="updatePlan();"></td>
                 <td><input type="text" class="form-control" value="${pos}" oninput="updatePlan();"></td>
-                <td><input type="number" class="form-control" value="${rate}" step="0.01" oninput="updatePlan();"></td>
+                <td><input type="number" class="form-control" value="${rate}" step="0.01" min="0" oninput="updatePlan();"></td>
                 <td><input type="text" class="form-control start-date-picker" value="${start}" readonly></td>
-                <td><input type="text" class="form-control layoff-date-picker" value="${layoff === 'None (full period)' ? layoff : layoff}" placeholder="None (full period)" readonly></td>
+                <td><input type="text" class="form-control layoff-date-picker" value="${layoff}" placeholder="None (full period)" readonly></td>
                 <td><button class="btn btn-danger btn-sm" onclick="this.parentNode.parentNode.remove(); updatePlan();">Delete</button></td>
             `;
             tbody.appendChild(row);
@@ -417,14 +443,16 @@
             flatpickr(row.querySelector('.layoff-date-picker'), {
                 dateFormat: "m-d-Y",
                 minDate: "07-18-2025",
-                onChange: function(selectedDates) { 
-                    if (selectedDates.length === 0) {
-                        row.querySelector('.layoff-date-picker').value = 'None (full period)';
+                allowInput: true, // Allow manual input for "None"
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 0 && dateStr !== 'None (full period)') {
+                        instance.setDate('', false);
+                        instance.input.value = 'None (full period)';
                     }
-                    updatePlan(); 
+                    updatePlan();
                 },
                 onClose: function(selectedDates, dateStr, instance) {
-                    if (dateStr === '') {
+                    if (dateStr === '' || dateStr.toLowerCase() === 'none') {
                         instance.setDate('', false);
                         instance.input.value = 'None (full period)';
                     }
@@ -449,11 +477,11 @@
             scheduleRows.forEach(row => {
                 const dateStr = row.cells[0].textContent;
                 const hours = parseFloat(row.cells[1].querySelector('select').value);
-                schedule.push({Date: dateStr, Hours: hours});
+                schedule.push({ Date: dateStr, Hours: hours });
             });
 
             workDates = schedule.map(row => moment(row.Date, dateFormat));
-            workDates.sort((a,b) => a - b);
+            workDates.sort((a, b) => a - b);
             const endDate = workDates.length > 0 ? workDates[workDates.length - 1] : moment();
             noLayoffDate = endDate.clone().add(1, 'days');
 
@@ -467,8 +495,8 @@
             workDates.forEach(d => {
                 const wd = d.day();
                 let mult = 1.0;
-                if (wd === 6) mult = 1.5;
-                if (wd === 0) mult = 2.0;
+                if (wd === 6) mult = 1.5; // Saturday
+                if (wd === 0) mult = 2.0; // Sunday
                 dailyMultipliers[d.format('YYYY-MM-DD')] = mult;
             });
 
@@ -491,13 +519,29 @@
                         HourlyPay: pay,
                         StartDate: moment(start, dateFormat),
                         ProposedLayoff: layoff,
-                        WeekendWork: {} // Reset or preserve if needed, but since dynamic, rebuilt in recalc
+                        WeekendWork: {}
                     });
                 }
             });
 
             // Sort employees by position
             employees.sort((a, b) => a.Position.localeCompare(b.Position));
+
+            // Rebuild employee table with position headers
+            const tbody = document.querySelector('#planTable tbody');
+            tbody.innerHTML = '';
+            let currentPosition = '';
+            employees.forEach((emp, idx) => {
+                if (emp.Position !== currentPosition) {
+                    const headerRow = document.createElement('tr');
+                    headerRow.className = 'position-header';
+                    headerRow.innerHTML = `<td colspan="7">${emp.Position}</td>`;
+                    tbody.appendChild(headerRow);
+                    currentPosition = emp.Position;
+                }
+                addEmployeeRow(emp.LastName, emp.FirstName, emp.Position, emp.HourlyPay, emp.StartDate.format(dateFormat), emp.ProposedLayoff);
+                employees[employees.length - 1].WeekendWork = emp.WeekendWork;
+            });
 
             displayWeekendTable();
         }
@@ -529,7 +573,7 @@
                 if (emp.ProposedLayoff === 'None (full period)') {
                     endI = noLayoffDate;
                 } else {
-                    endI = moment(emp.ProposedLayoff, dateFormat).add(1, 'days');
+                    endI = moment(emp.ProposedLayoff, dateFormat);
                     if (!endI.isValid()) {
                         alert(`Invalid layoff date for employee ${emp.FirstName} ${emp.LastName}: ${emp.ProposedLayoff}`);
                         valid = false;
@@ -549,12 +593,12 @@
                         const base_h = Math.min(h, 8);
                         const ot_h = Math.max(h - 8, 0);
                         const dayCost = (base_h * payI + ot_h * payI * 1.5) * mult;
-                        if (!dailyCosts[dateStr]) dailyCosts[dateStr] = {total: 0};
+                        if (!dailyCosts[dateStr]) dailyCosts[dateStr] = { total: 0 };
                         dailyCosts[dateStr][idx] = dayCost;
                         dailyCosts[dateStr].total += dayCost;
 
                         const weekKey = d.format('YYYY-WW');
-                        if (!weeklyCosts[weekKey]) weeklyCosts[weekKey] = {total: 0};
+                        if (!weeklyCosts[weekKey]) weeklyCosts[weekKey] = { total: 0 };
                         weeklyCosts[weekKey].total += dayCost;
 
                         if (!headcountSets[weekKey]) headcountSets[weekKey] = new Set();
@@ -702,11 +746,16 @@
 
         function updateCostDisplay() {
             document.getElementById('status').innerText = `Total calculated cost: $${currentTotalCost.toFixed(2)}`;
-            if (currentTotalCost > budget) {
+            if (budget > 0 && currentTotalCost > budget) {
                 document.getElementById('warning').innerText = 'Warning: Over budget!';
+                document.getElementById('budgetStatusSummary').innerText = 'Over Budget';
             } else {
                 document.getElementById('warning').innerText = '';
+                document.getElementById('budgetStatusSummary').innerText = budget > 0 ? 'Under Budget' : 'No Budget Set';
             }
+            document.getElementById('totalCostSummary').innerText = `$${currentTotalCost.toFixed(2)}`;
+            document.getElementById('totalEmployeesSummary').innerText = employees.length;
+            document.getElementById('totalWorkDaysSummary').innerText = workDates.length;
         }
 
         function saveState() {
@@ -721,9 +770,10 @@
                     WeekendWork: emp.WeekendWork
                 })),
                 schedule: schedule,
-                budget: budget
+                budget: budget,
+                customTitle: document.getElementById('customTitle').value
             };
-            const blob = new Blob([JSON.stringify(state)], {type: 'application/json'});
+            const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -735,24 +785,33 @@
         function loadState(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                const state = JSON.parse(e.target.result);
-                budget = state.budget;
-                document.getElementById('budget').value = budget;
-                const scheduleTbody = document.getElementById('scheduleTable').querySelector('tbody');
-                scheduleTbody.innerHTML = '';
-                state.schedule.forEach(s => {
-                    addScheduleRow(moment(s.Date, dateFormat));
-                    const row = scheduleTbody.lastChild;
-                    row.cells[1].querySelector('select').value = s.Hours;
-                });
-                const planTbody = document.getElementById('planTable').querySelector('tbody');
-                planTbody.innerHTML = '';
-                state.employees.forEach(e => {
-                    addEmployeeRow(e.LastName, e.FirstName, e.Position, e.HourlyPay, e.StartDate, e.ProposedLayoff);
-                    employees[employees.length - 1].WeekendWork = e.WeekendWork;
-                });
-                updatePlan();
-                recalculateCost();
+                try {
+                    const state = JSON.parse(e.target.result);
+                    budget = state.budget || 0;
+                    document.getElementById('budget').value = budget;
+                    document.getElementById('customTitle').value = state.customTitle || 'Budgeting';
+                    updateTitle();
+                    const scheduleTbody = document.querySelector('#scheduleTable tbody');
+                    scheduleTbody.innerHTML = '';
+                    state.schedule.forEach(s => {
+                        addScheduleRow(moment(s.Date, dateFormat));
+                        const row = scheduleTbody.lastChild;
+                        row.cells[1].querySelector('select').value = s.Hours;
+                    });
+                    const planTbody = document.querySelector('#planTable tbody');
+                    planTbody.innerHTML = '';
+                    state.employees.forEach(e => {
+                        addEmployeeRow(e.LastName, e.FirstName, e.Position, e.HourlyPay, e.StartDate, e.ProposedLayoff);
+                        employees[employees.length - 1].WeekendWork = e.WeekendWork || {};
+                    });
+                    updatePlan();
+                    recalculateCost();
+                } catch (error) {
+                    alert('Error loading state: ' + error.message);
+                }
+            };
+            reader.onerror = function() {
+                alert('Failed to read the state file. Please ensure it is a valid .json file.');
             };
             reader.readAsText(file);
         }
@@ -763,43 +822,66 @@
 
             const customTitle = document.getElementById('customTitle').value || 'Budgeting';
 
+            // Header
             doc.setFont("helvetica", "normal");
+            doc.setFontSize(16);
             doc.text(customTitle, 10, 10);
+            doc.setFontSize(12);
             doc.text(`Budget: $${budget.toFixed(2)}`, 10, 20);
             doc.text(`Total Cost: $${currentTotalCost.toFixed(2)}`, 10, 30);
+            doc.text(`Generated: ${moment().format('MM-DD-YYYY HH:mm')}`, 10, 40);
 
             // Add schedule table
-            doc.text('Work Schedule', 10, 50);
+            doc.setFontSize(14);
+            doc.text('Work Schedule', 10, 60);
             const scheduleData = schedule.map(row => [moment(row.Date, dateFormat).format(dateFormat), row.Hours]);
             doc.autoTable({
                 head: [['Date', 'Hours']],
                 body: scheduleData,
-                startY: 55,
+                startY: 65,
                 headStyles: { fillColor: [0, 113, 227], textColor: 255 },
                 styles: { font: "helvetica", fontSize: 10 }
             });
 
             // Add employee plan table
+            doc.setFontSize(14);
             doc.text('Employee Plan', 10, doc.lastAutoTable.finalY + 20);
-            const tableData = employees.map(emp => [
-                emp.LastName,
-                emp.FirstName,
-                emp.Position,
-                emp.HourlyPay.toFixed(2),
-                emp.StartDate.format(dateFormat),
-                Object.keys(emp.WeekendWork).map(d => moment(d, 'YYYY-MM-DD').format(dateFormat) + ': ' + (emp.WeekendWork[d] ? 'Yes' : 'No')).join(', '),
-                emp.ProposedLayoff
-            ]);
+            let currentPosition = '';
+            const tableData = [];
+            employees.forEach(emp => {
+                if (emp.Position !== currentPosition) {
+                    tableData.push([{ content: emp.Position, colSpan: 7, styles: { fillColor: [229, 229, 234], fontStyle: 'bold' } }]);
+                    currentPosition = emp.Position;
+                }
+                tableData.push([
+                    emp.LastName,
+                    emp.FirstName,
+                    emp.Position,
+                    emp.HourlyPay.toFixed(2),
+                    emp.StartDate.format(dateFormat),
+                    Object.keys(emp.WeekendWork).map(d => moment(d, 'YYYY-MM-DD').format(dateFormat) + ': ' + (emp.WeekendWork[d] ? 'Yes' : 'No')).join(', '),
+                    emp.ProposedLayoff
+                ]);
+            });
             doc.autoTable({
                 head: [['Last Name', 'First Name', 'Position', 'Rate', 'Start Date', 'Weekend Work', 'Proposed Layoff']],
                 body: tableData,
                 startY: doc.lastAutoTable.finalY + 25,
                 headStyles: { fillColor: [0, 113, 227], textColor: 255 },
-                styles: { font: "helvetica", fontSize: 10 }
+                styles: { font: "helvetica", fontSize: 10 },
+                didParseCell: function(data) {
+                    if (data.row.section === 'body' && data.row.cells[0].styles.fillColor) {
+                        data.row.cells.forEach(cell => {
+                            cell.styles.fillColor = [229, 229, 234];
+                            cell.styles.fontStyle = 'bold';
+                        });
+                    }
+                }
             });
 
             // Add daily group costs
             doc.addPage();
+            doc.setFontSize(14);
             doc.text('Daily Group Costs', 10, 10);
             const sortedDates = Object.keys(dailyCosts).sort();
             const dailyHead = [['Date', 'Total Cost']];
@@ -815,12 +897,14 @@
 
             // Add daily costs bar chart to PDF
             doc.addPage();
+            doc.setFontSize(14);
             doc.text('Daily Costs Bar Chart', 10, 10);
             const dailyChartCanvas = document.getElementById('dailyCostsChart');
             doc.addImage(dailyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
 
             // Add weekly group costs
             doc.addPage();
+            doc.setFontSize(14);
             doc.text('Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)', 10, 10);
             const sortedWeeks = Object.keys(weeklyCosts).sort();
             const weeklyHead = [['Week (First to Last Day)', 'Total Cost']];
@@ -841,12 +925,14 @@
 
             // Add weekly costs bar chart to PDF
             doc.addPage();
+            doc.setFontSize(14);
             doc.text('Weekly Costs Bar Chart', 10, 10);
             const weeklyChartCanvas = document.getElementById('weeklyCostsChart');
             doc.addImage(weeklyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
 
             // Add weekly headcount
             doc.addPage();
+            doc.setFontSize(14);
             doc.text('Weekly Headcount (Grouped by Calendar Week in YYYY-WW Format)', 10, 10);
             const headcountHead = [['Week (First to Last Day)', 'Headcount']];
             const headcountBody = sortedWeeks.map(week => {
@@ -865,12 +951,18 @@
 
             // Add headcount bar chart to PDF
             doc.addPage();
+            doc.setFontSize(14);
             doc.text('Weekly Headcount Bar Chart', 10, 10);
             const headcountChartCanvas = document.getElementById('headcountChart');
             doc.addImage(headcountChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
 
-            doc.save('budgeting.pdf');
+            doc.save(`${customTitle.replace(/\s+/g, '_').toLowerCase() || 'budgeting'}.pdf`);
         }
+
+        // Initialize tooltips
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(element => {
+            new bootstrap.Tooltip(element);
+        });
     </script>
 </body>
 </html>
