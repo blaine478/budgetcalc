@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Construction Department Budgeting</title>
+    <title>Budgeting</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -89,18 +89,20 @@
             font-size: 1.5rem;
             font-weight: 600;
         }
-        .accordion-button {
-            border-radius: 12px;
+        .nav-tabs .nav-link.active {
             background-color: #f5f5f7;
+            border-bottom: 3px solid #0071e3;
         }
-        .accordion-item {
+        .nav-tabs .nav-link {
             border: none;
-            margin-bottom: 10px;
-            border-radius: 12px;
-            overflow: hidden;
+            color: #1d1d1f;
+            font-weight: 500;
         }
-        .accordion-body {
-            background: white;
+        .tab-content {
+            padding: 20px;
+            background: #fff;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
         .help-icon {
             cursor: pointer;
@@ -141,180 +143,112 @@
             </div>
         </div>
 
-        <div class="accordion" id="sectionsAccordion">
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingSchedule">
-                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSchedule" aria-expanded="true" aria-controls="collapseSchedule">
-                        Build Work Schedule
-                    </button>
-                </h2>
-                <div id="collapseSchedule" class="accordion-collapse collapse show" aria-labelledby="headingSchedule">
-                    <div class="accordion-body">
-                        <p>Select multiple work days using the calendar (hold Ctrl/Cmd to pick non-consecutive days, or select ranges with Shift). The first selected day is included. Assign hours for each day.<span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Tip: Select days in order for better organization.">ℹ️</span></p>
-                        <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Days</button>
-                        <input id="datePickerInput">
-                        <table class="table table-striped" id="scheduleTable">
-                            <thead>
-                                <tr>
-                                    <th>Date (MM-DD-YYYY)</th>
-                                    <th>Hours</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link active" id="employees-tab" data-bs-toggle="tab" href="#employees" role="tab">Employees</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="schedule-tab" data-bs-toggle="tab" href="#schedule" role="tab">Work Schedule</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="weekend-tab" data-bs-toggle="tab" href="#weekend" role="tab">Weekend Assignment</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="budget-tab" data-bs-toggle="tab" href="#budget" role="tab">Budget</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="results-tab" data-bs-toggle="tab" href="#results" role="tab">Results</a>
+            </li>
+        </ul>
 
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingEmployees">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEmployees" aria-expanded="false" aria-controls="collapseEmployees">
-                        Employees
-                    </button>
-                </h2>
-                <div id="collapseEmployees" class="accordion-collapse collapse" aria-labelledby="headingEmployees">
-                    <div class="accordion-body">
-                        <div class="mb-3">
-                            <label for="employeeFile" class="form-label">Upload Employee List (Excel: Last Name, First Name, Position, Rate)</label>
-                            <input type="file" class="form-control" id="employeeFile" accept=".xlsx, .xls">
-                        </div>
-                        <button class="btn btn-secondary mb-3" onclick="addEmployeeRow()">Add Employee</button>
-                        <table class="table table-striped" id="planTable">
-                            <thead>
-                                <tr>
-                                    <th>Last Name</th>
-                                    <th>First Name</th>
-                                    <th>Position</th>
-                                    <th>Rate</th>
-                                    <th>Start Date (MM-DD-YYYY)</th>
-                                    <th>Layoff Date (MM-DD-YYYY or None)</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="employees" role="tabpanel">
+                <div class="mb-3">
+                    <label for="employeeFile" class="form-label">Upload Employee List (Excel: Last Name, First Name, Position, Rate)</label>
+                    <input type="file" class="form-control" id="employeeFile" accept=".xlsx, .xls">
                 </div>
+                <button class="btn btn-secondary mb-3" onclick="addEmployeeRow()">Add Employee</button>
+                <table class="table table-striped" id="planTable">
+                    <thead>
+                        <tr>
+                            <th>Last Name</th>
+                            <th>First Name</th>
+                            <th>Position</th>
+                            <th>Rate</th>
+                            <th>Start Date (MM-DD-YYYY)</th>
+                            <th>Layoff Date (MM-DD-YYYY or None)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
-
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingWeekend">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeekend" aria-expanded="false" aria-controls="collapseWeekend">
-                        Weekend Work Assignment
-                    </button>
-                </h2>
-                <div id="collapseWeekend" class="accordion-collapse collapse" aria-labelledby="headingWeekend">
-                    <div class="accordion-body">
-                        <table class="table table-striped" id="weekendTable">
-                            <thead id="weekendHead"></thead>
-                            <tbody id="weekendBody"></tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="tab-pane fade" id="schedule" role="tabpanel">
+                <p>Select multiple work days using the calendar (hold Ctrl/Cmd to pick non-consecutive days, or select ranges with Shift). The first selected day is included. Assign hours for each day.<span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Tip: Select days in order for better organization.">ℹ️</span></p>
+                <button class="btn btn-secondary mb-3" onclick="datePicker.open()">Add Work Days</button>
+                <input id="datePickerInput">
+                <table class="table table-striped" id="scheduleTable">
+                    <thead>
+                        <tr>
+                            <th>Date (MM-DD-YYYY)</th>
+                            <th>Hours</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
+            <div class="tab-pane fade" id="weekend" role="tabpanel">
+                <table class="table table-striped" id="weekendTable">
+                    <thead id="weekendHead"></thead>
+                    <tbody id="weekendBody"></tbody>
+                </table>
+            </div>
+            <div class="tab-pane fade" id="budget" role="tabpanel">
+                <label for="budget" class="form-label">Total Budget</label>
+                <input type="number" class="form-control" id="budget" step="0.01" min="0">
+            </div>
+            <div class="tab-pane fade" id="results" role="tabpanel">
+                <button class="btn btn-secondary mb-3" onclick="recalculateCost()">Calculate Costs</button>
+                <p id="status" class="mt-3"></p>
+                <p id="warning" class="mt-1"></p>
 
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingBudget">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBudget" aria-expanded="false" aria-controls="collapseBudget">
-                        Total Budget
-                    </button>
-                </h2>
-                <div id="collapseBudget" class="accordion-collapse collapse" aria-labelledby="headingBudget">
-                    <div class="accordion-body">
-                        <label for="budget" class="form-label">Total Budget</label>
-                        <input type="number" class="form-control" id="budget" step="0.01" min="0">
-                    </div>
+                <h3 class="mt-4">Daily Costs for Selected Day</h3>
+                <select id="selectedDay" class="form-select mb-3" onchange="displayDailyCostsForDay(this.value)">
+                    <option value="">Select a day</option>
+                </select>
+                <table class="table table-striped" id="dailyCostsTable">
+                    <thead><tr><th>Employee</th><th>Cost</th></tr></thead>
+                    <tbody id="dailyCostsBody"></tbody>
+                </table>
+
+                <div class="chart-container">
+                    <h3>Daily Costs Bar Chart</h3>
+                    <canvas id="dailyCostsChart" height="200"></canvas>
                 </div>
+
+                <h3 class="mt-4">Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)</h3>
+                <table class="table table-striped" id="weeklyCostsTable">
+                    <thead><tr><th>Week (First to Last Day)</th><th>Total Cost</th></tr></thead>
+                    <tbody id="weeklyCostsBody"></tbody>
+                </table>
+
+                <div class="chart-container">
+                    <h3>Weekly Costs Bar Chart</h3>
+                    <canvas id="weeklyCostsChart" height="200"></canvas>
+                </div>
+
+                <h3 class="mt-4">Weekly Headcount Flow (Grouped by Calendar Week in YYYY-WW Format)</h3>
+                <canvas id="headcountChart" height="200"></canvas>
+                <table class="table table-striped mt-3" id="headcountTable">
+                    <thead><tr><th>Week</th><th>Headcount</th></tr></thead>
+                    <tbody id="headcountBody"></tbody>
+                </table>
             </div>
         </div>
 
         <button class="btn btn-secondary mt-3" onclick="saveState()">Save State</button>
         <label for="loadStateFile" class="btn btn-secondary mt-3">Load State<input type="file" id="loadStateFile" accept=".json" style="display: none;" onchange="loadState(this.files[0])"></label>
-
-        <button class="btn btn-secondary mt-3" onclick="recalculateCost()">Calculate Costs</button>
-        <p id="status" class="mt-3"></p>
-        <p id="warning" class="mt-1"></p>
-
-        <div class="accordion" id="resultsAccordion">
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingDailyCosts">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDailyCosts" aria-expanded="false" aria-controls="collapseDailyCosts">
-                        Daily Costs for Selected Day
-                    </button>
-                </h2>
-                <div id="collapseDailyCosts" class="accordion-collapse collapse" aria-labelledby="headingDailyCosts">
-                    <div class="accordion-body">
-                        <select id="selectedDay" class="form-select mb-3" onchange="displayDailyCostsForDay(this.value)">
-                            <option value="">Select a day</option>
-                        </select>
-                        <table class="table table-striped" id="dailyCostsTable">
-                            <thead><tr><th>Employee</th><th>Cost</th></tr></thead>
-                            <tbody id="dailyCostsBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingDailyChart">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDailyChart" aria-expanded="false" aria-controls="collapseDailyChart">
-                        Daily Costs Bar Chart
-                    </button>
-                </h2>
-                <div id="collapseDailyChart" class="accordion-collapse collapse" aria-labelledby="headingDailyChart">
-                    <div class="accordion-body">
-                        <canvas id="dailyCostsChart" height="200"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingWeeklyCosts">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeeklyCosts" aria-expanded="false" aria-controls="collapseWeeklyCosts">
-                        Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)
-                    </button>
-                </h2>
-                <div id="collapseWeeklyCosts" class="accordion-collapse collapse" aria-labelledby="headingWeeklyCosts">
-                    <div class="accordion-body">
-                        <table class="table table-striped" id="weeklyCostsTable">
-                            <thead><tr><th>Week (First to Last Day)</th><th>Total Cost</th></tr></thead>
-                            <tbody id="weeklyCostsBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingWeeklyChart">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeeklyChart" aria-expanded="false" aria-controls="collapseWeeklyChart">
-                        Weekly Costs Bar Chart
-                    </button>
-                </h2>
-                <div id="collapseWeeklyChart" class="accordion-collapse collapse" aria-labelledby="headingWeeklyChart">
-                    <div class="accordion-body">
-                        <canvas id="weeklyCostsChart" height="200"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingHeadcount">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHeadcount" aria-expanded="false" aria-controls="collapseHeadcount">
-                        Weekly Headcount Flow (Grouped by Calendar Week in YYYY-WW Format)
-                    </button>
-                </h2>
-                <div id="collapseHeadcount" class="accordion-collapse collapse" aria-labelledby="headingHeadcount">
-                    <div class="accordion-body">
-                        <canvas id="headcountChart" height="200"></canvas>
-                        <table class="table table-striped mt-3" id="headcountTable">
-                            <thead><tr><th>Week</th><th>Headcount</th></tr></thead>
-                            <tbody id="headcountBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <button class="btn btn-success mt-3" onclick="generatePDF()">Generate and Download PDF</button>
     </div>
@@ -516,7 +450,7 @@
             employees.forEach((emp, idx) => {
                 let row = `<td>${emp.FirstName} ${emp.LastName}</td>`;
                 weekendDates.forEach(d => {
-                    const checked = emp.WeekendWork[d] !== false; // Default true
+                    const checked = emp.WeekendWork[d] === true; // Default false
                     row += `<td><input type="checkbox" ${checked ? 'checked' : ''} onchange="employees[${idx}].WeekendWork['${d}'] = this.checked; recalculateCost();"></td>`;
                 });
                 body.innerHTML += `<tr>${row}</tr>`;
@@ -547,8 +481,8 @@
                 workDates.forEach(d => {
                     const dateStr = d.format('YYYY-MM-DD');
                     const wd = d.day();
-                    const worksWeekend = emp.WeekendWork[dateStr] !== false;
-                    if (d.isSameOrAfter(startI) && d.isBefore(endI) && worksWeekend) {
+                    const worksWeekend = emp.WeekendWork[dateStr] === true; // Default false
+                    if (d.isSameOrAfter(startI) && d.isBefore(endI) && (wd <= 5 || worksWeekend)) {
                         const h = dailyHours[dateStr];
                         const mult = dailyMultipliers[dateStr];
                         const base_h = Math.min(h, 8);
@@ -766,118 +700,132 @@
         }
 
         function generatePDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+            setTimeout(() => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
 
-            const customTitle = document.getElementById('customTitle').value || 'Budgeting';
+                const customTitle = document.getElementById('customTitle').value || 'Budgeting';
 
-            doc.setFont("helvetica", "normal");
-            doc.text(customTitle, 10, 10);
-            doc.text(`Budget: $${budget.toFixed(2)}`, 10, 20);
-            doc.text(`Total Cost: $${currentTotalCost.toFixed(2)}`, 10, 30);
+                doc.setFont("helvetica", "normal");
+                doc.text(customTitle, 10, 10);
+                doc.text(`Budget: $${budget.toFixed(2)}`, 10, 20);
+                doc.text(`Total Cost: $${currentTotalCost.toFixed(2)}`, 10, 30);
 
-            // Add schedule table
-            doc.text('Work Schedule', 10, 50);
-            const scheduleData = schedule.map(row => [moment(row.Date, dateFormat).format(dateFormat), row.Hours]);
-            doc.autoTable({
-                head: [['Date', 'Hours']],
-                body: scheduleData,
-                startY: 55,
-                headStyles: { fillColor: [0, 113, 227], textColor: 255 },
-                styles: { font: "helvetica", fontSize: 10 }
-            });
+                // Add schedule table
+                doc.text('Work Schedule', 10, 50);
+                const scheduleData = schedule.map(row => [moment(row.Date, dateFormat).format(dateFormat), row.Hours]);
+                doc.autoTable({
+                    head: [['Date', 'Hours']],
+                    body: scheduleData,
+                    startY: 55,
+                    headStyles: { fillColor: [0, 113, 227], textColor: 255 },
+                    styles: { font: "helvetica", fontSize: 10 }
+                });
 
-            // Add employee plan table
-            doc.text('Employee Plan', 10, doc.lastAutoTable.finalY + 20);
-            const tableData = employees.map(emp => [
-                emp.LastName,
-                emp.FirstName,
-                emp.Position,
-                emp.HourlyPay.toFixed(2),
-                emp.StartDate.format(dateFormat),
-                Object.keys(emp.WeekendWork).map(d => moment(d, 'YYYY-MM-DD').format(dateFormat) + ': ' + (emp.WeekendWork[d] ? 'Yes' : 'No')).join(', '),
-                emp.ProposedLayoff
-            ]);
-            doc.autoTable({
-                head: [['Last Name', 'First Name', 'Position', 'Rate', 'Start Date', 'Weekend Work', 'Proposed Layoff']],
-                body: tableData,
-                startY: doc.lastAutoTable.finalY + 25,
-                headStyles: { fillColor: [0, 113, 227], textColor: 255 },
-                styles: { font: "helvetica", fontSize: 10 }
-            });
+                // Add employee plan table
+                doc.text('Employee Plan', 10, doc.lastAutoTable.finalY + 20);
+                const tableData = employees.map(emp => [
+                    emp.LastName,
+                    emp.FirstName,
+                    emp.Position,
+                    emp.HourlyPay.toFixed(2),
+                    emp.StartDate.format(dateFormat),
+                    Object.keys(emp.WeekendWork).map(d => moment(d, 'YYYY-MM-DD').format(dateFormat) + ': ' + (emp.WeekendWork[d] ? 'Yes' : 'No')).join(', '),
+                    emp.ProposedLayoff
+                ]);
+                doc.autoTable({
+                    head: [['Last Name', 'First Name', 'Position', 'Rate', 'Start Date', 'Weekend Work', 'Proposed Layoff']],
+                    body: tableData,
+                    startY: doc.lastAutoTable.finalY + 25,
+                    headStyles: { fillColor: [0, 113, 227], textColor: 255 },
+                    styles: { font: "helvetica", fontSize: 10 }
+                });
 
-            // Add daily group costs
-            doc.addPage();
-            doc.text('Daily Group Costs', 10, 10);
-            const sortedDates = Object.keys(dailyCosts).sort();
-            const dailyHead = [['Date', 'Total Cost']];
-            const dailyBody = sortedDates.map(date => [moment(date, 'YYYY-MM-DD').format(dateFormat), `$${dailyCosts[date].total.toFixed(2)}`]);
-            dailyBody.push(['Total', `$${currentTotalCost.toFixed(2)}`]);
-            doc.autoTable({
-                head: dailyHead,
-                body: dailyBody,
-                startY: 15,
-                headStyles: { fillColor: [0, 113, 227], textColor: 255 },
-                styles: { font: "helvetica", fontSize: 10 }
-            });
+                // Add daily group costs
+                doc.addPage();
+                doc.text('Daily Group Costs', 10, 10);
+                const sortedDates = Object.keys(dailyCosts).sort();
+                const dailyHead = [['Date', 'Total Cost']];
+                const dailyBody = sortedDates.map(date => [moment(date, 'YYYY-MM-DD').format(dateFormat), `$${dailyCosts[date].total.toFixed(2)}`]);
+                dailyBody.push(['Total', `$${currentTotalCost.toFixed(2)}`]);
+                doc.autoTable({
+                    head: dailyHead,
+                    body: dailyBody,
+                    startY: 15,
+                    headStyles: { fillColor: [0, 113, 227], textColor: 255 },
+                    styles: { font: "helvetica", fontSize: 10 }
+                });
 
-            // Add daily costs bar chart to PDF
-            doc.addPage();
-            doc.text('Daily Costs Bar Chart', 10, 10);
-            const dailyChartCanvas = document.getElementById('dailyCostsChart');
-            doc.addImage(dailyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+                // Add daily costs bar chart to PDF
+                doc.addPage();
+                doc.text('Daily Costs Bar Chart', 10, 10);
+                const dailyChartCanvas = document.getElementById('dailyCostsChart');
+                try {
+                    doc.addImage(dailyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+                } catch (e) {
+                    console.error('Error adding daily costs chart to PDF:', e);
+                }
 
-            // Add weekly group costs
-            doc.addPage();
-            doc.text('Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)', 10, 10);
-            const sortedWeeks = Object.keys(weeklyCosts).sort();
-            const weeklyHead = [['Week (First to Last Day)', 'Total Cost']];
-            const weeklyBody = sortedWeeks.map(week => {
-                const weekMoment = moment().year(week.split('-')[0]).week(week.split('-')[1]);
-                const monday = weekMoment.clone().startOf('isoWeek').format(dateFormat);
-                const sunday = weekMoment.clone().endOf('isoWeek').format(dateFormat);
-                return [`${monday} to ${sunday}`, `$${weeklyCosts[week].total.toFixed(2)}`];
-            });
-            weeklyBody.push(['Total', `$${currentTotalCost.toFixed(2)}`]);
-            doc.autoTable({
-                head: weeklyHead,
-                body: weeklyBody,
-                startY: 15,
-                headStyles: { fillColor: [0, 113, 227], textColor: 255 },
-                styles: { font: "helvetica", fontSize: 10 }
-            });
+                // Add weekly group costs
+                doc.addPage();
+                doc.text('Weekly Group Costs (Grouped by Calendar Week in YYYY-WW Format, Monday to Sunday)', 10, 10);
+                const sortedWeeks = Object.keys(weeklyCosts).sort();
+                const weeklyHead = [['Week (First to Last Day)', 'Total Cost']];
+                const weeklyBody = sortedWeeks.map(week => {
+                    const weekMoment = moment().year(week.split('-')[0]).week(week.split('-')[1]);
+                    const monday = weekMoment.clone().startOf('isoWeek').format(dateFormat);
+                    const sunday = weekMoment.clone().endOf('isoWeek').format(dateFormat);
+                    return [`${monday} to ${sunday}`, `$${weeklyCosts[week].total.toFixed(2)}`];
+                });
+                weeklyBody.push(['Total', `$${currentTotalCost.toFixed(2)}`]);
+                doc.autoTable({
+                    head: weeklyHead,
+                    body: weeklyBody,
+                    startY: 15,
+                    headStyles: { fillColor: [0, 113, 227], textColor: 255 },
+                    styles: { font: "helvetica", fontSize: 10 }
+                });
 
-            // Add weekly costs bar chart to PDF
-            doc.addPage();
-            doc.text('Weekly Costs Bar Chart', 10, 10);
-            const weeklyChartCanvas = document.getElementById('weeklyCostsChart');
-            doc.addImage(weeklyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+                // Add weekly costs bar chart to PDF
+                doc.addPage();
+                doc.text('Weekly Costs Bar Chart', 10, 10);
+                const weeklyChartCanvas = document.getElementById('weeklyCostsChart');
+                try {
+                    doc.addImage(weeklyChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+                } catch (e) {
+                    console.error('Error adding weekly costs chart to PDF:', e);
+                }
 
-            // Add weekly headcount
-            doc.addPage();
-            doc.text('Weekly Headcount (Grouped by Calendar Week in YYYY-WW Format)', 10, 10);
-            const headcountHead = [['Week (First to Last Day)', 'Headcount']];
-            const headcountBody = sortedWeeks.map(week => {
-                const weekMoment = moment().year(week.split('-')[0]).week(week.split('-')[1]);
-                const monday = weekMoment.clone().startOf('isoWeek').format(dateFormat);
-                const sunday = weekMoment.clone().endOf('isoWeek').format(dateFormat);
-                return [`${monday} to ${sunday}`, weeklyHeadcount[week]];
-            });
-            doc.autoTable({
-                head: headcountHead,
-                body: headcountBody,
-                startY: 15,
-                headStyles: { fillColor: [0, 113, 227], textColor: 255 },
-                styles: { font: "helvetica", fontSize: 10 }
-            });
+                // Add weekly headcount
+                doc.addPage();
+                doc.text('Weekly Headcount (Grouped by Calendar Week in YYYY-WW Format)', 10, 10);
+                const headcountHead = [['Week (First to Last Day)', 'Headcount']];
+                const headcountBody = sortedWeeks.map(week => {
+                    const weekMoment = moment().year(week.split('-')[0]).week(week.split('-')[1]);
+                    const monday = weekMoment.clone().startOf('isoWeek').format(dateFormat);
+                    const sunday = weekMoment.clone().endOf('isoWeek').format(dateFormat);
+                    return [`${monday} to ${sunday}`, weeklyHeadcount[week]];
+                });
+                doc.autoTable({
+                    head: headcountHead,
+                    body: headcountBody,
+                    startY: 15,
+                    headStyles: { fillColor: [0, 113, 227], textColor: 255 },
+                    styles: { font: "helvetica", fontSize: 10 }
+                });
 
-            // Add headcount bar chart to PDF
-            doc.addPage();
-            doc.text('Weekly Headcount Bar Chart', 10, 10);
-            const headcountChartCanvas = document.getElementById('headcountChart');
-            doc.addImage(headcountChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+                // Add headcount bar chart to PDF
+                doc.addPage();
+                doc.text('Weekly Headcount Bar Chart', 10, 10);
+                const headcountChartCanvas = document.getElementById('headcountChart');
+                try {
+                    doc.addImage(headcountChartCanvas.toDataURL('image/png'), 'PNG', 10, 20, 190, 100);
+                } catch (e) {
+                    console.error('Error adding headcount chart to PDF:', e);
+                }
 
-            doc.save('budgeting.pdf');
+                doc.save('budgeting.pdf');
+            }, 500); // Delay to ensure charts are rendered
         }
     </script>
 </body>
