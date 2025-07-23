@@ -117,7 +117,7 @@
     <div class="container">
         <div class="mb-3">
             <label for="customTitle" class="form-label">Custom Title</label>
-            <input type="text" class="form-control" id="customTitle" value="Budgeting" placeholder="Enter custom title">
+            <input type="text" class="form-control" id="customTitle" value="Budgeting" placeholder="Enter custom title" oninput="updateTitle()">
         </div>
 
         <h1 class="mb-4" id="appTitle">Budgeting</h1>
@@ -439,9 +439,10 @@
             updateCostDisplay();
         });
 
-        document.getElementById('customTitle').addEventListener('input', function() {
-            document.getElementById('appTitle').innerText = this.value || 'Budgeting';
-        });
+        function updateTitle() {
+            const customTitle = document.getElementById('customTitle').value || 'Budgeting';
+            document.getElementById('appTitle').innerText = customTitle;
+        }
 
         function updatePlan() {
             schedule = [];
